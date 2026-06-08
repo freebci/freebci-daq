@@ -15,8 +15,6 @@ import type {
   EegAnalysisResult,
   EegAnnotationKind,
   EegHeatmapMetric,
-  EegFocusCalibrationState,
-  EegFocusStatePoint,
   EegSampleBatch,
 } from '../types/eeg';
 import type { SiteBindingV1 } from '../ai/protocol';
@@ -25,11 +23,6 @@ import {
   EEG_DEFAULT_FFT_SIZE,
   EEG_ENGAGEMENT_ALERT_THRESHOLD,
   EEG_ENGAGEMENT_EMA_ALPHA,
-  EEG_FOCUS_BASELINE_SECONDS,
-  EEG_FOCUS_DECISION_MAX_SECONDS,
-  EEG_FOCUS_DECISION_MIN_SECONDS,
-  EEG_FOCUS_DECISION_SECONDS,
-  EEG_INITIAL_UNRELIABLE_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
   EEG_LIVE_WINDOW_SECONDS,
@@ -42,6 +35,20 @@ import {
   type EegFilterId,
 } from '../analysis/filterRegistry';
 import type { EegSpectrumSnapshot } from '../types/eeg';
+import type { EegFocusCalibrationState, EegFocusStatePoint } from '../focus/types';
+import {
+  FOCUS_DECISION_SECONDS,
+  FOCUS_DECISION_MIN_SECONDS,
+  FOCUS_DECISION_MAX_SECONDS,
+} from '../focus/config';
+import {
+  createInitialFocusCalibrationState,
+  advanceFocusCalibration,
+  createFocusCalibrationForCurrentStreamTime,
+  clampFocusReferenceValue,
+  clampFocusOutputWindowSeconds,
+  trimFocusStatePoints,
+} from '../focus/focusCalibration';
 import {
   EEG_DEFAULT_CHANNEL_COUNT,
   normalizeEegChannelCount,
@@ -161,21 +168,6 @@ const initialAcquisitionState: EegAcquisitionState = {
   hardwareConfigLocked: false,
 };
 
-function createInitialFocusCalibrationState(): EegFocusCalibrationState {
-  return {
-    phase: 'idle',
-    warmupEndsAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS,
-    baselineStartedAtSeconds: null,
-    baselineEndsAtSeconds: null,
-    baselineValue: null,
-    referenceValue: null,
-    lastDecisionWindowEndSeconds: null,
-    focusState: null,
-    focusValue: null,
-    updatedAt: null,
-  };
-}
-
 function createInitialAnalysisState() {
   const ch0State = createEmptyChannelAnalysisState();
 
@@ -184,7 +176,7 @@ function createInitialAnalysisState() {
     selectedFilterId: DEFAULT_FILTER_ID,
     filterParams: getFilterDefaultParams(DEFAULT_FILTER_ID),
     fftSize: EEG_DEFAULT_FFT_SIZE as number,
-    focusOutputWindowSeconds: EEG_FOCUS_DECISION_SECONDS,
+    focusOutputWindowSeconds: FOCUS_DECISION_SECONDS,
     liveWindowSeconds: EEG_LIVE_WINDOW_SECONDS,
     engagementAlertThreshold: EEG_ENGAGEMENT_ALERT_THRESHOLD,
     bandPowers: null,
@@ -245,17 +237,6 @@ function trimAnalysisPoints(points: EegAnalysisPoint[]): EegAnalysisPoint[] {
   return points.filter((point) => point.timeSeconds >= windowStartSeconds);
 }
 
-function trimFocusStatePoints(points: EegFocusStatePoint[]): EegFocusStatePoint[] {
-  const latestTimeSeconds = points[points.length - 1]?.timeSeconds;
-
-  if (latestTimeSeconds === undefined) {
-    return [];
-  }
-
-  const windowStartSeconds = latestTimeSeconds - EEG_ANALYSIS_HISTORY_SECONDS;
-  return points.filter((point) => point.timeSeconds >= windowStartSeconds);
-}
-
 function trimHeatmapFrames<T extends { timeSeconds: number }>(frames: T[]): T[] {
   const latestTimeSeconds = frames[frames.length - 1]?.timeSeconds;
 
@@ -265,163 +246,6 @@ function trimHeatmapFrames<T extends { timeSeconds: number }>(frames: T[]): T[] 
 
   const windowStartSeconds = latestTimeSeconds - EEG_LIVE_WINDOW_MAX_SECONDS;
   return frames.filter((frame) => frame.timeSeconds >= windowStartSeconds);
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) {
-    return null;
-  }
-
-  const sorted = [...values].sort((a, b) => a - b);
-  const middleIndex = Math.floor(sorted.length / 2);
-
-  if (sorted.length % 2 === 1) {
-    return sorted[middleIndex];
-  }
-
-  return (sorted[middleIndex - 1] + sorted[middleIndex]) / 2;
-}
-
-function medianEngagementIndexInWindow(
-  points: EegAnalysisPoint[],
-  startSeconds: number,
-  endSeconds: number,
-): number | null {
-  const values = points
-    .filter((point) => {
-      const value = point.engagementIndex;
-      return (
-        point.timeSeconds >= startSeconds &&
-        point.timeSeconds <= endSeconds &&
-        value !== null &&
-        Number.isFinite(value)
-      );
-    })
-    .map((point) => point.engagementIndex as number);
-
-  return median(values);
-}
-
-function advanceFocusCalibration(
-  focusCalibration: EegFocusCalibrationState,
-  outputWindowSeconds: number,
-  analysisPoints: EegAnalysisPoint[],
-  focusStatePoints: EegFocusStatePoint[],
-): {
-  focusCalibration: EegFocusCalibrationState;
-  focusStatePoints: EegFocusStatePoint[];
-} {
-  const latestPoint = analysisPoints[analysisPoints.length - 1];
-
-  if (!latestPoint || focusCalibration.phase === 'idle') {
-    return { focusCalibration, focusStatePoints };
-  }
-
-  let nextFocusCalibration = focusCalibration;
-  let nextFocusStatePoints = focusStatePoints;
-
-  if (
-    nextFocusCalibration.phase === 'waiting-warmup' &&
-    latestPoint.timeSeconds >= nextFocusCalibration.warmupEndsAtSeconds
-  ) {
-    nextFocusCalibration = {
-      ...nextFocusCalibration,
-      phase: 'collecting-baseline',
-      baselineStartedAtSeconds: nextFocusCalibration.warmupEndsAtSeconds,
-      baselineEndsAtSeconds:
-        nextFocusCalibration.warmupEndsAtSeconds + EEG_FOCUS_BASELINE_SECONDS,
-      updatedAt: latestPoint.updatedAt,
-    };
-  }
-
-  if (nextFocusCalibration.phase === 'collecting-baseline') {
-    const baselineStartedAtSeconds = nextFocusCalibration.baselineStartedAtSeconds;
-    const baselineEndsAtSeconds = nextFocusCalibration.baselineEndsAtSeconds;
-
-    if (
-      baselineStartedAtSeconds !== null &&
-      baselineEndsAtSeconds !== null &&
-      latestPoint.timeSeconds >= baselineEndsAtSeconds
-    ) {
-      const baselineValue = medianEngagementIndexInWindow(
-        analysisPoints,
-        baselineStartedAtSeconds,
-        baselineEndsAtSeconds,
-      );
-
-      if (baselineValue !== null) {
-        nextFocusCalibration = {
-          ...nextFocusCalibration,
-          phase: 'active',
-          baselineValue,
-          referenceValue: baselineValue,
-          lastDecisionWindowEndSeconds: baselineEndsAtSeconds,
-          focusState: null,
-          focusValue: null,
-          updatedAt: latestPoint.updatedAt,
-        };
-      } else {
-        nextFocusCalibration = {
-          ...nextFocusCalibration,
-          baselineStartedAtSeconds: latestPoint.timeSeconds,
-          baselineEndsAtSeconds: latestPoint.timeSeconds + EEG_FOCUS_BASELINE_SECONDS,
-          updatedAt: latestPoint.updatedAt,
-        };
-      }
-    }
-  }
-
-  const referenceValue = nextFocusCalibration.referenceValue;
-
-  if (nextFocusCalibration.phase !== 'active' || referenceValue === null) {
-    return { focusCalibration: nextFocusCalibration, focusStatePoints: nextFocusStatePoints };
-  }
-
-  let nextWindowEndSeconds =
-    (nextFocusCalibration.lastDecisionWindowEndSeconds ??
-      nextFocusCalibration.baselineEndsAtSeconds ??
-      latestPoint.timeSeconds) + outputWindowSeconds;
-
-  while (latestPoint.timeSeconds >= nextWindowEndSeconds) {
-    const windowStartSeconds = nextWindowEndSeconds - outputWindowSeconds;
-    const engagementValue = medianEngagementIndexInWindow(
-      analysisPoints,
-      windowStartSeconds,
-      nextWindowEndSeconds,
-    );
-
-    if (engagementValue !== null) {
-      const state = engagementValue >= referenceValue ? 1 : 0;
-      const focusPoint: EegFocusStatePoint = {
-        timeSeconds: nextWindowEndSeconds,
-        state,
-        engagementValue,
-        referenceValue,
-        windowStartSeconds,
-        windowEndSeconds: nextWindowEndSeconds,
-        updatedAt: latestPoint.updatedAt,
-      };
-
-      nextFocusStatePoints = trimFocusStatePoints([...nextFocusStatePoints, focusPoint]);
-      nextFocusCalibration = {
-        ...nextFocusCalibration,
-        lastDecisionWindowEndSeconds: nextWindowEndSeconds,
-        focusState: state,
-        focusValue: engagementValue,
-        updatedAt: latestPoint.updatedAt,
-      };
-    } else {
-      nextFocusCalibration = {
-        ...nextFocusCalibration,
-        lastDecisionWindowEndSeconds: nextWindowEndSeconds,
-        updatedAt: latestPoint.updatedAt,
-      };
-    }
-
-    nextWindowEndSeconds += outputWindowSeconds;
-  }
-
-  return { focusCalibration: nextFocusCalibration, focusStatePoints: nextFocusStatePoints };
 }
 
 function clampLiveWindowSeconds(seconds: number): number {
@@ -437,44 +261,8 @@ function clampEngagementAlertThreshold(threshold: number): number {
   return Math.max(0, threshold);
 }
 
-function clampFocusReferenceValue(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, value);
-}
-
-function clampFocusOutputWindowSeconds(seconds: number): number {
-  if (!Number.isFinite(seconds)) return EEG_FOCUS_DECISION_SECONDS;
-  return Math.max(
-    EEG_FOCUS_DECISION_MIN_SECONDS,
-    Math.min(EEG_FOCUS_DECISION_MAX_SECONDS, Math.round(seconds)),
-  );
-}
-
 function normalizeChannelName(channelName: string | undefined): string {
   return channelName?.trim() || 'ch0';
-}
-
-function createFocusCalibrationForCurrentStreamTime(
-  currentStreamTimeSeconds: number,
-): EegFocusCalibrationState {
-  const canStartBaseline = currentStreamTimeSeconds >= EEG_INITIAL_UNRELIABLE_SECONDS;
-  const baselineStartedAtSeconds = canStartBaseline ? currentStreamTimeSeconds : null;
-
-  return {
-    phase: canStartBaseline ? 'collecting-baseline' : 'waiting-warmup',
-    warmupEndsAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS,
-    baselineStartedAtSeconds,
-    baselineEndsAtSeconds:
-      baselineStartedAtSeconds === null
-        ? null
-        : baselineStartedAtSeconds + EEG_FOCUS_BASELINE_SECONDS,
-    baselineValue: null,
-    referenceValue: null,
-    lastDecisionWindowEndSeconds: null,
-    focusState: null,
-    focusValue: null,
-    updatedAt: null,
-  };
 }
 
 function getCurrentStreamTimeSeconds(sampleCount: number, sampleRateHz = EEG_SAMPLE_RATE_HZ): number {

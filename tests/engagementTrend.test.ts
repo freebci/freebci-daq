@@ -3,14 +3,16 @@ import { smoothEngagementResults, useEegStore } from '../src/store/eegStore';
 import {
   EEG_ENGAGEMENT_ALERT_THRESHOLD,
   EEG_ENGAGEMENT_EMA_ALPHA,
-  EEG_FOCUS_BASELINE_SECONDS,
-  EEG_FOCUS_DECISION_SECONDS,
   EEG_INITIAL_UNRELIABLE_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
   EEG_LIVE_WINDOW_SECONDS,
   EEG_SAMPLE_RATE_HZ,
 } from '../src/config/eeg';
+import {
+  FOCUS_BASELINE_SECONDS,
+  FOCUS_DECISION_SECONDS,
+} from '../src/focus/config';
 import type { EegAnalysisResult, EegSampleBatch } from '../src/types/eeg';
 
 const baseResult = (
@@ -317,7 +319,7 @@ describe('eegStore engagement trend settings', () => {
     expect(store.getState().analysis.focusCalibration).toMatchObject({
       phase: 'collecting-baseline',
       baselineStartedAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS,
-      baselineEndsAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS + EEG_FOCUS_BASELINE_SECONDS,
+      baselineEndsAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS + FOCUS_BASELINE_SECONDS,
       baselineValue: null,
     });
 
@@ -361,7 +363,7 @@ describe('eegStore engagement trend settings', () => {
     ]);
     store.getState().setFocusReferenceValue(1);
     store.getState().recordAnalysisResults([
-      baseResult(70 + EEG_FOCUS_DECISION_SECONDS, 0.2),
+      baseResult(70 + FOCUS_DECISION_SECONDS, 0.2),
     ]);
 
     expect(store.getState().analysis.focusCalibration.referenceValue).toBe(1);

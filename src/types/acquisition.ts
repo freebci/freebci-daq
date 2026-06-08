@@ -4,8 +4,8 @@ import type {
   EegAnnotationLabel,
   EegAnnotationRecord,
   EegBrainHeatmapState,
-  EegFocusStatePoint,
 } from './eeg';
+import type { EegFocusStatePoint } from '../focus/types';
 import type { EegHardwareConfig } from '../transport/eegHardwareConfig';
 
 export type AcquisitionStatus =

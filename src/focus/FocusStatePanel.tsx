@@ -8,10 +8,6 @@ import {
 } from 'react';
 import { Play, RotateCcw, Upload, X } from 'lucide-react';
 import {
-  EEG_FOCUS_BASELINE_SECONDS,
-  EEG_FOCUS_DECISION_MAX_SECONDS,
-  EEG_FOCUS_DECISION_MIN_SECONDS,
-  EEG_INITIAL_UNRELIABLE_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
 } from '../config/eeg';
@@ -19,9 +15,15 @@ import type { Locale } from '../i18n';
 import { t } from '../i18n';
 import { useEegStore } from '../store/eegStore';
 import { getEffectiveEegHardwareSampleRateHz } from '../transport/eegHardwareConfig';
-import type { EegFocusCalibrationPhase, EegFocusStatePoint } from '../types/eeg';
 import { formatAnalysisMetric, formatAnalysisSeconds } from '../utils/analysisFormat';
-import { Button, Card, CardBody, CardHeader, Field, NumberInput, ToggleSwitch } from './ui';
+import { Button, Card, CardBody, CardHeader, Field, NumberInput, ToggleSwitch } from '../components/ui';
+import {
+  FOCUS_BASELINE_SECONDS,
+  FOCUS_DECISION_MAX_SECONDS,
+  FOCUS_DECISION_MIN_SECONDS,
+  FOCUS_WARMUP_SECONDS,
+} from './config';
+import type { EegFocusCalibrationPhase, EegFocusStatePoint } from './types';
 
 interface FocusStatePanelProps {
   locale: Locale;
@@ -51,8 +53,8 @@ function clampWindowSeconds(seconds: number): number {
 function clampOutputWindowSeconds(seconds: number): number {
   if (!Number.isFinite(seconds)) return 30;
   return Math.max(
-    EEG_FOCUS_DECISION_MIN_SECONDS,
-    Math.min(EEG_FOCUS_DECISION_MAX_SECONDS, Math.round(seconds)),
+    FOCUS_DECISION_MIN_SECONDS,
+    Math.min(FOCUS_DECISION_MAX_SECONDS, Math.round(seconds)),
   );
 }
 
@@ -148,9 +150,9 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   );
   const warmupRemainingSeconds = Math.max(
     0,
-    EEG_INITIAL_UNRELIABLE_SECONDS - currentStreamTimeSeconds,
+    FOCUS_WARMUP_SECONDS - currentStreamTimeSeconds,
   );
-  const isWarmupReady = currentStreamTimeSeconds >= EEG_INITIAL_UNRELIABLE_SECONDS;
+  const isWarmupReady = currentStreamTimeSeconds >= FOCUS_WARMUP_SECONDS;
   const isCollectingBaseline = focusCalibration.phase === 'collecting-baseline';
   const canCollectBaseline = stream.isStreaming && isWarmupReady;
   const baselineRemainingSeconds =
@@ -164,7 +166,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
           Math.min(
             1,
             (currentStreamTimeSeconds - focusCalibration.baselineStartedAtSeconds) /
-              EEG_FOCUS_BASELINE_SECONDS,
+              FOCUS_BASELINE_SECONDS,
           ),
         )
       : 0;
@@ -269,8 +271,8 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
     const parsed = Number(raw);
     if (
       Number.isFinite(parsed) &&
-      parsed >= EEG_FOCUS_DECISION_MIN_SECONDS &&
-      parsed <= EEG_FOCUS_DECISION_MAX_SECONDS
+      parsed >= FOCUS_DECISION_MIN_SECONDS &&
+      parsed <= FOCUS_DECISION_MAX_SECONDS
     ) {
       setFocusOutputWindowSeconds(Math.round(parsed));
     }
@@ -460,8 +462,8 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
               <NumberInput
                 id="focus-output-window-seconds"
                 value={outputWindowDraft}
-                min={EEG_FOCUS_DECISION_MIN_SECONDS}
-                max={EEG_FOCUS_DECISION_MAX_SECONDS}
+                min={FOCUS_DECISION_MIN_SECONDS}
+                max={FOCUS_DECISION_MAX_SECONDS}
                 step={5}
                 onChange={handleOutputWindowSecondsChange}
                 onBlur={(event) => commitOutputWindowSeconds(event.currentTarget.value)}

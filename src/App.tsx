@@ -10,7 +10,7 @@ import { ErrorBanner } from './components/ErrorBanner';
 import { FilteredWaveformPanel } from './components/FilteredWaveformPanel';
 import { FiveBandFeaturePanel } from './components/FiveBandFeaturePanel';
 import { FilterControlsPanel } from './components/FilterControlsPanel';
-import { FocusStatePanel } from './components/FocusStatePanel';
+import { FocusStatePanel } from './focus';
 import { HardwareConfigPanel } from './components/HardwareConfigPanel';
 import { LiveWindowControlPanel } from './components/LiveWindowControlPanel';
 import { RawWaveformPanel } from './components/RawWaveformPanel';
