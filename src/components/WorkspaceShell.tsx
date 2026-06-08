@@ -161,6 +161,31 @@ export function WorkspaceShell({
               {t(locale, 'app.description')}
             </p>
           </div>
+          <div className="flex items-center gap-3 sm:ml-auto sm:flex-shrink-0">
+            <a
+              href={t(locale, 'hero.companyUrl')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                src="/company-watermark.png"
+                alt="BBCI"
+                className="h-16 w-16 flex-shrink-0 sm:h-20 sm:w-20"
+              />
+            </a>
+            <span className="text-[0.82rem] leading-snug text-meta">
+              {t(locale, 'hero.companyCreditPrefix')}
+              <a
+                href={t(locale, 'hero.companyUrl')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline decoration-accent/60 underline-offset-2 hover:decoration-accent transition-colors"
+              >
+                {t(locale, 'hero.companyName')}
+              </a>
+              {t(locale, 'hero.companyCreditSuffix')}
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-4">{children(activePage)}</div>
       </section>
