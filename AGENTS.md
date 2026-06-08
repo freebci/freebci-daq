@@ -9,34 +9,49 @@
 ```bash
 npm install
 npm run dev
-npm run typecheck
-npm run test:unit
-npm test
-npm run build
-npm run preview
+npm run typecheck      # tsc --noEmit，仅检查 src/（不含 tests/）
+npm run test:unit      # vitest run（仅单元测试，不做 typecheck）
+npm test               # typecheck + test:unit（提交前完整验证）
+npm run build          # typecheck + vite build → dist/
+npm run preview        # vite preview（预览构建产物）
 ```
 
-运行单个测试文件：`npx vitest run tests/serialEegProtocol.test.ts`。按名称运行单个测试：`npx vitest run -t "<名称>"`。
+`npm test` 和 `npm run build` 都内置了 typecheck，无需单独提前运行。
+
+运行单个测试文件：`npx vitest run tests/serialEegProtocol.test.ts`
+按名称运行单个测试：`npx vitest run -t "<名称>"`
+
+Vitest 无独立配置文件，复用 `vite.config.ts`（React + Tailwind CSS v4 插件）。
 
 Web Serial 行为需要在 Chrome/Edge 上通过 `localhost`、`127.0.0.1` 或 HTTPS 配合真实硬件手动测试。
 
+## 配置
+
+场景绑定参数（EMA 平滑因子、告警阈值、初始不可信期、baseline/判定窗口）通过环境变量 `VITE_*` 注入，回退到保守默认值。参照 `.env.example` 创建 `.env`。所有环境变量必须以 `VITE_` 为前缀。详见 [TUNING.md](./TUNING.md)。
+
 ## 架构
 
-流水线：`requestSerialPort → openSerialPort → 发送 EEGRST → 发送 EEGCFG → 发送 SW,START → 串口 EEG 协议解析 → CSV（跳过前 40s）+ FFT 分析 + EI / focus 判定`。
+流水线：`requestSerialPort → openSerialPort → 发送 EEGRST → 发送 EEGCFG → 发送 SW,START → 串口 EEG 协议解析 → 每 batch 推送 raw/filtered 波形总线 → CSV（跳过初始不可信期）+ FFT 分析 + EI / focus 判定`。
 
 状态分离（关键）：Zustand 仅存储**可序列化的 UI 状态**。`useAcquisitionActions()` 以 ref 方式持有不可序列化的对象：`SerialPort`、reader、串口解析器、`FileSystemWritableFileStream` 和 `EegFrequencyAnalyzer` 实例。切勿将这些放入 `src/store/eegStore.ts`。
 
 ### 关键目录
 
-- `src/serial/` — 所有 `navigator.serial` 访问、串口协议、硬件配置和采集开关
-- `src/transport/` — 内部连接抽象、共享 EEG 通道/硬件参数和二进制帧协议工具；当前只启用 `serial`
-- `src/hooks/useAcquisitionActions.ts` — 串口状态机、连接超时、ref 持有的对象
-- `src/store/eegStore.ts` — 公开 UI 状态、诊断日志、分析历史
-- `src/config/eeg.ts` — 采样率、FFT、EI、focus 等通用 EEG 常量
-- `src/config/serial.ts` — 串口波特率和 ACK/停滞超时
-- `src/analysis/` — 滤波、FFT、频带功率分析
-- `src/state/` — `rawWaveformBus.ts` 和 `filteredWaveformBus.ts`（观察者总线）
-- `src/i18n.ts` — zh-CN 和 en-US 文案
+| 目录 | 职责 |
+|---|---|
+| `src/serial/` | 所有 `navigator.serial` 访问、串口协议、硬件配置和采集开关 |
+| `src/transport/` | 内部连接抽象、共享 EEG 通道/硬件参数和二进制帧协议工具；当前只启用 `serial` |
+| `src/hooks/useAcquisitionActions.ts` | 串口状态机、连接超时、ref 持有的对象 |
+| `src/store/eegStore.ts` | 可序列化 UI 状态、诊断日志、分析历史、EMA 平滑后的 EI 趋势 |
+| `src/config/eeg.ts` | 采样率、FFT、EMA 平滑、告警阈值等全局 EEG 常量 |
+| `src/config/serial.ts` | 串口波特率和 ACK/停滞超时 |
+| `src/analysis/` | 滤波、FFT、频带功率分析、导联脱落检测 |
+| `src/state/` | `rawWaveformBus.ts` 和 `filteredWaveformBus.ts`（观察者总线） |
+| `src/ai/` | AI agent 流水线（OpenAI 兼容接口）、五频带推理、IndexedDB 持久化、自然语言报告 |
+| `src/focus/` | 专注度校准状态机与面板 |
+| `src/algorithms/` | 参与度指数（EI）计算 |
+| `src/components/` | 全部 UI 面板（波形、热力图、滤波控制等） |
+| `src/i18n.ts` | zh-CN 和 en-US 文案 |
 
 ## 边界与易错点
 
@@ -46,13 +61,17 @@ Web Serial 行为需要在 Chrome/Edge 上通过 `localhost`、`127.0.0.1` 或 H
 - 实时 EI 趋势在 store 层使用 EMA 平滑（`EEG_ENGAGEMENT_EMA_ALPHA`）；不要对 FFT 频段功率重复平滑。
 - 切换滤波器会重建分析器，并有 2 秒窗口填充间隔。不要拼接不兼容的滤波器状态。
 - `RawWaveformPanel` 和 `FilteredWaveformPanel` 从观察者总线（`src/state/`）绘制，而非从 store 状态。
-- SSVEP 闪烁使用 `requestAnimationFrame` 直接 DOM 操作，避免 60 Hz React 重渲染。
+
+### 测试相关
+
+- AI / IndexedDB 测试依赖 `fake-indexeddb`（devDependencies），测试环境中自动注入。
+- `tsconfig.json` 的 `include` 仅包含 `src/`，test 文件通过 vitest 单独编译，不走 tsc typecheck。
 
 ## 验证检查清单
 
 代码变更后：
 
-1. `npm test`
+1. `npm test`（含 typecheck）
 2. `npm run build`
 3. 确认连接前必须先确认硬件参数和点位绑定。
 4. 确认选择新串口设备会替换当前设备。
