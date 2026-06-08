@@ -2,6 +2,8 @@
 
 Thanks for taking the time to contribute. Whether it's a bug report, a feature idea, a documentation fix, or a code PR — everything helps.
 
+This project has a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
+
 ## Where to start
 
 - **Bug report?** Open a [GitHub Issue](https://github.com/freebci/freebci-daq/issues) with steps to reproduce, expected behavior, and screenshots if applicable.

@@ -2,5 +2,10 @@ node_modules
 dist
 .DS_Store
 *.local
+*.tsbuildinfo
+*.log
+.vscode/
+.idea/
+coverage/
 .env
 .env.production
