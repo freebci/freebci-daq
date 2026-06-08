@@ -1,4 +1,4 @@
-# Browser EEG Collection Platform
+# FreeBCI DAQ
 
 A static React + TypeScript + Vite browser app for EEG collection over Web Serial. It opens a serial EEG device, sends reset/config/start commands, parses int24 EEG frames, optionally writes raw CSV, and displays realtime filtered waveforms, spectral analysis, engagement index, and binary focus state.
 

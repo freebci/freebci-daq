@@ -6,7 +6,7 @@ export const DEFAULT_LOCALE: Locale = 'zh-CN';
 
 const translations = {
   'zh-CN': {
-    'app.title': 'FreeBC BBCI开发套件（Web采集）',
+    'app.title': 'FreeBCI DAQ',
     'app.heading': '脑电信号采集与实时频域分析',
     'app.description': '通过 Web Serial 打开 EEG 串口，确认硬件参数和点位绑定后开始采集。',
     'app.heroAlt': 'EEG 设备工作台',
@@ -36,10 +36,8 @@ const translations = {
     'workspace.idle': 'idle',
     'language.switchAria': '切换页面语言',
     'language.switchTo': 'English',
-    'masthead.brand': 'FreeBC BBCI开发套件（Web采集）',
+    'masthead.brand': 'FreeBCI DAQ',
     'masthead.edition': 'v0.1',
-    'hero.eyebrow': 'BBCI · Web 采集',
-    'hero.lead': '基于 Web Serial 的浏览器端 EEG 采集与实时频域分析。无需后端，全程在本地完成。',
     'step.search': '准备设备',
     'step.searchHint': '确认硬件参数和采集点位',
     'step.connect': '打开串口',
@@ -420,7 +418,7 @@ const translations = {
     'error.serialSwitchAckTimeout': '等待采集开关 ACK 超时。',
   },
   'en-US': {
-    'app.title': 'FreeBC BBCI Developer Kit (Web Acquisition)',
+    'app.title': 'FreeBCI DAQ',
     'app.heading': 'EEG Acquisition & Realtime Spectral Analysis',
     'app.description': 'Open the EEG serial port through Web Serial, confirm hardware parameters and site bindings, then start collection.',
     'app.heroAlt': 'EEG device workstation',
@@ -450,10 +448,8 @@ const translations = {
     'workspace.idle': 'idle',
     'language.switchAria': 'Switch page language',
     'language.switchTo': '中文',
-    'masthead.brand': 'FreeBC BBCI Developer Kit (Web Acquisition)',
+    'masthead.brand': 'FreeBCI DAQ',
     'masthead.edition': 'v0.1',
-    'hero.eyebrow': 'BBCI · Web Acquisition',
-    'hero.lead': 'Browser-side EEG collection and realtime frequency analysis over Web Serial. No backend; everything happens locally.',
     'step.search': 'Prepare device',
     'step.searchHint': 'Confirm hardware parameters and acquisition sites',
     'step.connect': 'Open serial',
