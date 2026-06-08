@@ -45,6 +45,7 @@ Open `http://localhost:5173`, connect your EEG device, confirm hardware paramete
 
 ## Documentation
 
+- **[ROADMAP.md](./ROADMAP.md)** — 版本规划：算法、WASM、蓝牙、桌面版
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — 架构设计、数据流、设计模式
 - **[TUNING.md](./TUNING.md)** — 参数调参指南（EMA、告警阈值、专注判定窗口）
 - **[I18N.md](./I18N.md)** — 中英文翻译对照表

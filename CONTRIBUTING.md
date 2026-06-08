@@ -12,7 +12,7 @@ This project has a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, yo
 - **Translation?** Edit `src/i18n.ts` and sync `I18N.md`. See the [i18n guide](./I18N.md).
 - **Documentation?** README, ARCHITECTURE, TUNING, I18N — all open for improvement.
 
-If you are unsure where to start, pick an [open issue](https://github.com/freebci/freebci-daq/issues) or start a [discussion](https://github.com/freebci/freebci-daq/issues).
+If you are unsure where to start, see the [roadmap](./ROADMAP.md) for upcoming priorities or pick an [open issue](https://github.com/freebci/freebci-daq/issues).
 
 ## Development setup
 
