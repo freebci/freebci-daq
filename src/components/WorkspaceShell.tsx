@@ -147,6 +147,21 @@ export function WorkspaceShell({
       </aside>
 
       <section className="min-w-0" role="tabpanel">
+        <div className="mb-4 flex flex-col items-start gap-5 rounded-sm border border-hairline bg-card p-5 sm:flex-row sm:items-center">
+          <img
+            src="/brand-hero.png"
+            alt={t(locale, 'app.heroAlt')}
+            className="h-24 w-24 flex-shrink-0 sm:h-32 sm:w-32"
+          />
+          <div className="min-w-0">
+            <h2 className="text-[1.05rem] font-semibold tracking-tight text-ink">
+              {t(locale, 'app.heading')}
+            </h2>
+            <p className="mt-1.5 text-[0.82rem] leading-relaxed text-meta">
+              {t(locale, 'app.description')}
+            </p>
+          </div>
+        </div>
         <div className="flex flex-col gap-4">{children(activePage)}</div>
       </section>
     </main>
