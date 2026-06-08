@@ -14,7 +14,3 @@ export const FOCUS_DECISION_MIN_SECONDS = 5;
 export const FOCUS_DECISION_MAX_SECONDS = 300;
 
 export const FOCUS_WARMUP_SECONDS = 40;
-
-export const FOCUS_EMA_ALPHA = 0.25;
-
-export const FOCUS_ALERT_THRESHOLD = 0.5;
