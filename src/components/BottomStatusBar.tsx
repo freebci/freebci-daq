@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ScrollText } from 'lucide-react';
+import { ExternalLink, ScrollText } from 'lucide-react';
 import type { Locale } from '../i18n';
 import { t } from '../i18n';
 import { useEegStore } from '../store/eegStore';
@@ -117,6 +117,15 @@ export function BottomStatusBar({
           />
         </div>
         <div className="flex items-center gap-3 pl-4 border-l border-hairline">
+          <a
+            href="https://github.com/freebci"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-sm px-2 h-7 font-mono text-[0.7rem] text-accent hover:text-accent/80 hover:bg-surface-2 transition-colors"
+          >
+            <ExternalLink size={13} strokeWidth={1.5} />
+            The FreeBCI Project
+          </a>
           <button
             type="button"
             onClick={onOpenDiagnostics}

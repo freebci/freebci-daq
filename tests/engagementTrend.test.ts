@@ -3,14 +3,16 @@ import { smoothEngagementResults, useEegStore } from '../src/store/eegStore';
 import {
   EEG_ENGAGEMENT_ALERT_THRESHOLD,
   EEG_ENGAGEMENT_EMA_ALPHA,
-  EEG_FOCUS_BASELINE_SECONDS,
-  EEG_FOCUS_DECISION_SECONDS,
   EEG_INITIAL_UNRELIABLE_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
   EEG_LIVE_WINDOW_SECONDS,
   EEG_SAMPLE_RATE_HZ,
 } from '../src/config/eeg';
+import {
+  FOCUS_BASELINE_SECONDS,
+  FOCUS_DECISION_SECONDS,
+} from '../src/focus/config';
 import type { EegAnalysisResult, EegSampleBatch } from '../src/types/eeg';
 
 const baseResult = (
@@ -306,7 +308,7 @@ describe('eegStore engagement trend settings', () => {
     expect(store.getState().analysis.engagementAlertThreshold).toBe(0);
   });
 
-  it('collects focus baseline after the 40s warmup and emits binary 30s states', () => {
+  it('collects focus baseline after the warmup and emits binary states', () => {
     const store = useEegStore;
     store.getState().reset();
     store.getState().setStreamActive('characteristic-uuid', false);
@@ -314,36 +316,40 @@ describe('eegStore engagement trend settings', () => {
     advanceStreamSamples(EEG_SAMPLE_RATE_HZ * EEG_INITIAL_UNRELIABLE_SECONDS + 1);
     store.getState().beginFocusBaseline();
 
+    const warmupSec = EEG_INITIAL_UNRELIABLE_SECONDS;
+    const baselineEnd = warmupSec + FOCUS_BASELINE_SECONDS;
+
     expect(store.getState().analysis.focusCalibration).toMatchObject({
       phase: 'collecting-baseline',
-      baselineStartedAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS,
-      baselineEndsAtSeconds: EEG_INITIAL_UNRELIABLE_SECONDS + EEG_FOCUS_BASELINE_SECONDS,
+      baselineStartedAtSeconds: warmupSec,
+      baselineEndsAtSeconds: baselineEnd,
       baselineValue: null,
     });
 
     store.getState().recordAnalysisResults([
-      baseResult(40, 0.8),
-      baseResult(55, 0.8),
-      baseResult(70, 0.8),
+      baseResult(warmupSec, 0.8),
+      baseResult(warmupSec + 15, 0.8),
+      baseResult(baselineEnd, 0.8),
     ]);
 
     expect(store.getState().analysis.focusCalibration).toMatchObject({
       phase: 'active',
       baselineValue: 0.8,
       referenceValue: 0.8,
-      lastDecisionWindowEndSeconds: 70,
+      lastDecisionWindowEndSeconds: baselineEnd,
     });
     expect(store.getState().focusStatePoints).toHaveLength(0);
 
-    store.getState().recordAnalysisResults([baseResult(100, 1.2)]);
+    const decisionEnd = baselineEnd + FOCUS_DECISION_SECONDS;
+    store.getState().recordAnalysisResults([baseResult(decisionEnd, 1.2)]);
 
     const [focusPoint] = store.getState().focusStatePoints;
     expect(focusPoint).toMatchObject({
-      timeSeconds: 100,
+      timeSeconds: decisionEnd,
       state: 1,
       referenceValue: 0.8,
-      windowStartSeconds: 70,
-      windowEndSeconds: 100,
+      windowStartSeconds: baselineEnd,
+      windowEndSeconds: decisionEnd,
     });
   });
 
@@ -352,16 +358,19 @@ describe('eegStore engagement trend settings', () => {
     store.getState().reset();
     store.getState().setStreamActive('characteristic-uuid', false);
 
-    advanceStreamSamples(EEG_SAMPLE_RATE_HZ * EEG_INITIAL_UNRELIABLE_SECONDS + 1);
+    const warmupSec = EEG_INITIAL_UNRELIABLE_SECONDS;
+    const baselineEnd = warmupSec + FOCUS_BASELINE_SECONDS;
+
+    advanceStreamSamples(EEG_SAMPLE_RATE_HZ * warmupSec + 1);
     store.getState().beginFocusBaseline();
     store.getState().recordAnalysisResults([
-      baseResult(40, 0.8),
-      baseResult(55, 0.8),
-      baseResult(70, 0.8),
+      baseResult(warmupSec, 0.8),
+      baseResult(warmupSec + 15, 0.8),
+      baseResult(baselineEnd, 0.8),
     ]);
     store.getState().setFocusReferenceValue(1);
     store.getState().recordAnalysisResults([
-      baseResult(70 + EEG_FOCUS_DECISION_SECONDS, 0.2),
+      baseResult(baselineEnd + FOCUS_DECISION_SECONDS, 0.2),
     ]);
 
     expect(store.getState().analysis.focusCalibration.referenceValue).toBe(1);
@@ -376,22 +385,25 @@ describe('eegStore engagement trend settings', () => {
     store.getState().reset();
     store.getState().setStreamActive('characteristic-uuid', false);
 
-    advanceStreamSamples(EEG_SAMPLE_RATE_HZ * EEG_INITIAL_UNRELIABLE_SECONDS + 1);
+    const warmupSec = EEG_INITIAL_UNRELIABLE_SECONDS;
+    const baselineEnd = warmupSec + FOCUS_BASELINE_SECONDS;
+
+    advanceStreamSamples(EEG_SAMPLE_RATE_HZ * warmupSec + 1);
     store.getState().beginFocusBaseline();
     store.getState().recordAnalysisResults([
-      baseResult(40, 0.8),
-      baseResult(55, 0.8),
-      baseResult(70, 0.8),
+      baseResult(warmupSec, 0.8),
+      baseResult(warmupSec + 15, 0.8),
+      baseResult(baselineEnd, 0.8),
     ]);
     store.getState().setFocusOutputWindowSeconds(10);
-    store.getState().recordAnalysisResults([baseResult(80, 1.2)]);
+    store.getState().recordAnalysisResults([baseResult(baselineEnd + 10, 1.2)]);
 
     expect(store.getState().analysis.focusOutputWindowSeconds).toBe(10);
     expect(store.getState().focusStatePoints[0]).toMatchObject({
-      timeSeconds: 80,
+      timeSeconds: baselineEnd + 10,
       state: 1,
-      windowStartSeconds: 70,
-      windowEndSeconds: 80,
+      windowStartSeconds: baselineEnd,
+      windowEndSeconds: baselineEnd + 10,
     });
   });
 
