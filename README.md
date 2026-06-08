@@ -65,3 +65,17 @@ After code changes, run:
 npm test
 npm run build
 ```
+
+## License
+
+FreeBCI DAQ is licensed under the GNU Affero General Public License v3
+(AGPL v3) with additional commercial terms. See [LICENSE](./LICENSE) for
+the full text.
+
+In summary:
+
+- **Free for academic research, education, and personal use.**
+- **Commercial use requires a separate license agreement.**
+- **Copyright (c) 2026 北京脑机接口商业有限公司 / Beijing Brain-Computer Interface Co., Ltd.**
+
+For commercial licensing inquiries, visit [https://www.bbci.net](https://www.bbci.net).

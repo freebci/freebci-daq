@@ -349,6 +349,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
                   ? t(locale, 'focus.streamRequired')
                   : !isWarmupReady
                     ? t(locale, 'focus.warmupLocked', {
+                        warmup: FOCUS_WARMUP_SECONDS,
                         seconds: Math.ceil(warmupRemainingSeconds),
                       })
                     : undefined
@@ -496,6 +497,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
         {stream.isStreaming && !isWarmupReady && (
           <p className="m-0 text-[0.85rem] text-meta">
             {t(locale, 'focus.warmupLocked', {
+              warmup: FOCUS_WARMUP_SECONDS,
               seconds: Math.ceil(warmupRemainingSeconds),
             })}
           </p>

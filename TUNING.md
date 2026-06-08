@@ -9,6 +9,20 @@
 | `src/config/eeg.ts` | 全局 EEG 参数（采样、FFT、EMA、告警） |
 | `src/focus/config.ts` | 专注模块专用参数（baseline、判定窗口） |
 
+## 配置方式
+
+场景绑定参数通过 **环境变量** 注入，构建时由 Vite 内联。默认值为保守通用值。
+
+```bash
+# 复制模板
+cp .env.example .env
+
+# 编辑 .env 填入针对你硬件的调参值
+# 不设置则使用 .env.example 中的保守默认值
+```
+
+见 `.env.example` 了解所有可配置参数。
+
 算法公式是公开的（见 `src/algorithms/engagementIndex.ts`），本文件记录的是**可调参数**。同样的算法，不同的参数，用户体验完全不同。
 
 ---
@@ -17,28 +31,28 @@
 
 ### `src/config/eeg.ts` — 全局 EEG 参数
 
-| 常量 | 默认值 | 类型 | 说明 |
-|------|--------|------|------|
-| `EEG_SAMPLE_RATE_HZ` | 250 | 硬件固定 | 设备采样率，不应变动 |
-| `EEG_ANALYSIS_WINDOW_SECONDS` | 2 | 硬件固定 | FFT 窗口时长（2s = 500 样本） |
-| `EEG_ANALYSIS_HOP_SECONDS` | 0.5 | 硬件固定 | FFT 输出间隔（0.5s = 125 样本） |
-| `EEG_DEFAULT_FFT_SIZE` | 512 | 硬件固定 | FFT 点数（大于窗口样本数的最小 2 的幂） |
-| `EEG_LIVE_WINDOW_SECONDS` | 300 | UI 默认 | 波形/趋势图 X 轴默认秒数 |
-| `EEG_LIVE_WINDOW_MIN_SECONDS` | 30 | UI 限制 | X 轴最小允许值 |
-| `EEG_LIVE_WINDOW_MAX_SECONDS` | 600 | UI 限制 | X 轴最大允许值 |
-| **`EEG_ENGAGEMENT_EMA_ALPHA`** | **0.25** | **可调** | **EI 指数 EMA 平滑因子** |
-| **`EEG_ENGAGEMENT_ALERT_THRESHOLD`** | **0.5** | **可调** | **趋势图 EI 告警红线** |
-| **`EEG_INITIAL_UNRELIABLE_SECONDS`** | **40** | **可调** | **初始不可信期秒数** |
+| 常量 | 默认值 | 环境变量 | 类型 | 说明 |
+|------|--------|---------|------|------|
+| `EEG_SAMPLE_RATE_HZ` | 250 | — | 硬件固定 | 设备采样率，不应变动 |
+| `EEG_ANALYSIS_WINDOW_SECONDS` | 2 | — | 硬件固定 | FFT 窗口时长（2s = 500 样本） |
+| `EEG_ANALYSIS_HOP_SECONDS` | 0.5 | — | 硬件固定 | FFT 输出间隔（0.5s = 125 样本） |
+| `EEG_DEFAULT_FFT_SIZE` | 512 | — | 硬件固定 | FFT 点数（大于窗口样本数的最小 2 的幂） |
+| `EEG_LIVE_WINDOW_SECONDS` | 300 | — | UI 默认 | 波形/趋势图 X 轴默认秒数 |
+| `EEG_LIVE_WINDOW_MIN_SECONDS` | 30 | — | UI 限制 | X 轴最小允许值 |
+| `EEG_LIVE_WINDOW_MAX_SECONDS` | 600 | — | UI 限制 | X 轴最大允许值 |
+| **`EEG_ENGAGEMENT_EMA_ALPHA`** | **0.1** | `VITE_EMA_ALPHA` | **可调** | **EI 指数 EMA 平滑因子** |
+| **`EEG_ENGAGEMENT_ALERT_THRESHOLD`** | **0.3** | `VITE_ALERT_THRESHOLD` | **可调** | **趋势图 EI 告警红线** |
+| **`EEG_INITIAL_UNRELIABLE_SECONDS`** | **30** | `VITE_INITIAL_UNRELIABLE` | **可调** | **初始不可信期秒数** |
 
 ### `src/focus/config.ts` — 专注模块参数
 
-| 常量 | 默认值 | 说明 |
-|------|--------|------|
-| **`FOCUS_BASELINE_SECONDS`** | **30** | **baseline 采集窗口时长** |
-| **`FOCUS_DECISION_SECONDS`** | **30** | **专注判定窗口默认秒数** |
-| `FOCUS_DECISION_MIN_SECONDS` | 5 | 判定窗口 UI 下限 |
-| `FOCUS_DECISION_MAX_SECONDS` | 300 | 判定窗口 UI 上限 |
-| **`FOCUS_WARMUP_SECONDS`** | **40** | **初始不可信期（需与 `EEG_INITIAL_UNRELIABLE_SECONDS` 同步）** |
+| 常量 | 默认值 | 环境变量 | 说明 |
+|------|--------|---------|------|
+| **`FOCUS_BASELINE_SECONDS`** | **15** | `VITE_FOCUS_BASELINE` | **baseline 采集窗口时长** |
+| **`FOCUS_DECISION_SECONDS`** | **15** | `VITE_FOCUS_DECISION` | **专注判定窗口默认秒数** |
+| `FOCUS_DECISION_MIN_SECONDS` | 5 | — | 判定窗口 UI 下限 |
+| `FOCUS_DECISION_MAX_SECONDS` | 300 | — | 判定窗口 UI 上限 |
+| **`FOCUS_WARMUP_SECONDS`** | **30** | `VITE_FOCUS_WARMUP` | **初始不可信期（需与 `VITE_INITIAL_UNRELIABLE` 同步）** |
 
 ---
 
@@ -50,8 +64,8 @@ EI 的 EMA 平滑公式：`smoothEI = α × rawEI + (1−α) × prevSmoothEI`
 
 | α 值 | 效果 | 适用场景 |
 |------|------|---------|
-| 0.1 | 非常平滑，响应慢 | 噪声大的硬件，或只需看长期趋势 |
-| 0.25 | 默认值，平衡 | 通用场景 |
+| 0.1 | 非常平滑，响应慢。当前开源默认值 | 通用场景 |
+| 0.25 | 中等，平衡 | 调优后推荐值 |
 | 0.5 | 响应快，波动大 | 高信噪比硬件，需看实时变化 |
 | 0.8 | 几乎跟原始值 | 调试阶段快速验证 |
 
@@ -60,14 +74,14 @@ EI 的 EMA 平滑公式：`smoothEI = α × rawEI + (1−α) × prevSmoothEI`
 趋势图中 EI 低于此值会标红。AI 专注推断（`fiveBandInference.ts`）也使用此值：
 
 ```
-FOCUS_SUPPORT_RATIO_THRESHOLD  = EEG_ENGAGEMENT_ALERT_THRESHOLD       (0.5)
+FOCUS_SUPPORT_RATIO_THRESHOLD  = EEG_ENGAGEMENT_ALERT_THRESHOLD       (default 0.3)
 FOCUS_MIXED_RATIO_THRESHOLD   = EEG_ENGAGEMENT_ALERT_THRESHOLD × 0.7 (0.35)
 ```
 
 | 阈值 | 效果 |
 |------|------|
-| 0.3 | 宽松，只有明显涣散才标红 |
-| 0.5 | 默认，中等严格 |
+| 0.3 | 宽松（开源默认），只有明显涣散才标红 |
+| 0.5 | 中等严格，调优建议值 |
 | 0.7 | 严格，轻微下降就标红 |
 | 1.0 | 极严，通常不推荐 |
 
@@ -148,15 +162,15 @@ FOCUS_BASELINE_SECONDS = 15           // 快速基线
 FOCUS_DECISION_SECONDS = 15           // 快速判定
 ```
 
-### 场景 C：默认（通用）
+### 场景 C：默认（通用开放源码值）
 
 ```
-EEG_ENGAGEMENT_EMA_ALPHA = 0.25
-EEG_ENGAGEMENT_ALERT_THRESHOLD = 0.5
-EEG_INITIAL_UNRELIABLE_SECONDS = 40
-FOCUS_WARMUP_SECONDS = 40
-FOCUS_BASELINE_SECONDS = 30
-FOCUS_DECISION_SECONDS = 30
+EEG_ENGAGEMENT_EMA_ALPHA = 0.1
+EEG_ENGAGEMENT_ALERT_THRESHOLD = 0.3
+EEG_INITIAL_UNRELIABLE_SECONDS = 30
+FOCUS_WARMUP_SECONDS = 30
+FOCUS_BASELINE_SECONDS = 15
+FOCUS_DECISION_SECONDS = 15
 ```
 
 ---

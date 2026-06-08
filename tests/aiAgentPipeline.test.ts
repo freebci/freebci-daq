@@ -81,9 +81,9 @@ describe('AI agent pipeline', () => {
       shouldBackcheckUnclearAnswer(
         request('最近 1 分钟我专注么？'),
         context({
-          betaMean: 0.4,
-          alphaMean: 0.8,
-          thetaMean: 0.2,
+          betaMean: 0.25,
+          alphaMean: 0.5,
+          thetaMean: 0.5,
           events: [bandEvent('alphaPower', 'high')],
         }),
       ),
