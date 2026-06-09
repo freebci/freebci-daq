@@ -117,6 +117,11 @@ function App() {
               <>
                 {!isStreaming && <HardwareConfigPanel locale={locale} />}
 
+                <AiSiteBindingPanel
+                  locale={locale}
+                  onBeginBindingEdit={handleBeginBindingEdit}
+                />
+
                 {!isStreaming && (
                   <section>
                     <ConnectionPanel
@@ -127,11 +132,6 @@ function App() {
                     />
                   </section>
                 )}
-
-                <AiSiteBindingPanel
-                  locale={locale}
-                  onBeginBindingEdit={handleBeginBindingEdit}
-                />
                 <FilterControlsPanel locale={locale} />
                 <DataStreamPanel
                   locale={locale}
