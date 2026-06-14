@@ -1,70 +1,76 @@
 # Contributing
 
-Thanks for taking the time to contribute. Whether it's a bug report, a feature idea, a documentation fix, or a code PR — everything helps.
+Thanks for helping improve FreeBCI DAQ. This project welcomes bug reports, docs fixes, translations, hardware protocol feedback, and focused code changes.
 
-This project has a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold it.
+By participating, you agree to follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
-## Where to start
+## Start Here
 
-- **Bug report?** Open a [GitHub Issue](https://github.com/freebci/freebci-daq/issues) with steps to reproduce, expected behavior, and screenshots if applicable.
-- **Feature idea?** Open an issue describing what you want to achieve and why.
-- **Code contribution?** See the [PR workflow](#pull-request-workflow) below.
-- **Translation?** Edit `src/i18n.ts` and sync `I18N.md`. See the [i18n guide](./I18N.md).
-- **Documentation?** README, ARCHITECTURE, TUNING, I18N — all open for improvement.
+| Need | Where to go |
+|---|---|
+| Bug report | Open an issue with reproduction steps, expected behavior, actual behavior, screenshots/logs if useful |
+| Feature idea | Open an issue describing the workflow and why it matters |
+| Firmware/protocol feedback | Start from [docs/serial-protocol.md](./docs/serial-protocol.md) |
+| Tuning questions | See [ARCHITECTURE.md](./ARCHITECTURE.md#page-tuning-reference) |
+| Architecture change | Read [ARCHITECTURE.md](./ARCHITECTURE.md) and [AGENTS.md](./AGENTS.md) first |
+| Translation update | Edit `src/i18n.ts` and keep both locales in sync |
 
-If you are unsure where to start, see the [roadmap](./ROADMAP.md) for upcoming priorities or pick an [open issue](https://github.com/freebci/freebci-daq/issues).
-
-## Development setup
+## Local Development
 
 ```bash
 npm install
-npm run dev        # → http://localhost:5173
-npm test           # typecheck + 162 unit tests
+npm run dev
+npm test
+npm run build
 ```
 
-Chrome or Edge with Web Serial support is required for end-to-end testing. Served from `localhost`, `127.0.0.1`, or HTTPS.
+Notes:
 
-Full command reference and architecture notes: **[AGENTS.md](./AGENTS.md)**.
+- Node.js must satisfy `^20.19.0 || >=22.12.0` because the project uses Vite 8.
+- `npm test` runs typecheck plus unit tests.
+- `npm run build` runs typecheck before Vite build.
+- `npm install` may update `package-lock.json`; keep valid npm-resolved lockfile changes and verify the resulting tree.
+- Web Serial end-to-end behavior must be checked in Chrome or Edge from `localhost`, `127.0.0.1`, or HTTPS with real hardware.
+- The package scripts call package-local CLIs directly instead of relying on `node_modules/.bin` shims.
 
-## Pull Request workflow
+## Pull Request Checklist
 
-1. Fork the repository.
-2. Create a branch from `main`.
-3. Make your changes. Add tests if applicable.
-4. Run `npm test && npm run build` and ensure everything passes.
-5. Push and open a pull request to `main`.
-6. In the PR description, explain **what** you changed and **why**.
+Before opening a PR:
 
-Keep PRs focused. One PR should address one concern. If feedback expands scope, consider a separate follow-up. Rebase onto `main` rather than merging.
+1. Keep the PR scoped to one concern.
+2. Add or update tests when behavior changes.
+3. Run `npm test`.
+4. Run `npm run build`.
+5. For UI or serial changes, manually verify the relevant workflow in Chrome/Edge when hardware is available.
+6. In the PR description, explain what changed and why.
 
-## Code guidelines
+## Project Boundaries
 
-Read **[AGENTS.md](./AGENTS.md)** for the full set of constraints. At a minimum:
+Do not cross these without a design discussion:
 
-**Architecture**
-- This is a static frontend. Do not introduce backend or server-side code.
-- The only enabled connection method is Web Serial. Do not introduce Web Bluetooth, GATT, or Notify code.
-- Zustand stores only serializable UI state. Use `useAcquisitionActions()` refs for `SerialPort`, stream readers, `EegFrequencyAnalyzer` instances, and file handles.
+- Do not turn the app into a backend/server application. Production output is static `dist/`.
+- Do not add Web Bluetooth, GATT, Notify, service UUID inputs, or old UUID filtering logic.
+- Do not put `SerialPort`, readers, parsers, `FileSystemWritableFileStream`, or analyzer instances into Zustand.
+- Do not add runtime config-file tuning for EMA, alert threshold, unreliable warmup, baseline, or focus decision windows.
 
-**Data flow**
-- Waveform panels read from Observer Buses (`src/state/`) via `requestAnimationFrame`, not from React state.
-- EI EMA smoothing happens in the store layer. Do not re-smooth FFT band powers.
-- Switching filters rebuilds all analyzers with a 2-second window fill gap.
+## Code Guidelines
 
-**Configuration**
-- Scene-dependent tuning parameters are injected via `import.meta.env.VITE_*` with conservative defaults. New environment variables must be documented in `.env.example`. See **[TUNING.md](./TUNING.md)**.
+- Follow the existing module boundaries and naming style.
+- Prefer existing utilities, stores, and UI primitives before adding new abstractions.
+- Keep waveform rendering on observer buses under `src/state/`; do not move 250Hz drawing data into React state.
+- Keep EI EMA smoothing in `src/store/eegStore.ts`; do not smooth FFT band powers.
+- Switching filters must rebuild analyzers and allow the 2s analysis window to refill.
+- Keep user-visible strings in both `zh-CN` and `en-US`.
 
-**i18n**
-- Every UI string must have both `zh-CN` and `en-US` entries in `src/i18n.ts`. English is the authoritative locale; Chinese aligns to it. After editing, update **[I18N.md](./I18N.md)**.
+## Documentation Guidelines
 
-**Focus module**
-- Focus calibration logic lives under `src/focus/` and is self-contained. New focus-related features should extend this module. See **[ARCHITECTURE.md](./ARCHITECTURE.md)**.
-
-**Style**
-- Follow the existing code conventions in each file. Do not introduce unnecessary comments.
-- Use existing libraries and utility functions. Do not add dependencies without discussion.
-- Write commit messages in English. One commit per logical change.
+| Document | Update when |
+|---|---|
+| `README.md` | User-facing capabilities, quick start, command map, document map |
+| `ARCHITECTURE.md` | Runtime flow, tuning, roadmap, known technical debt |
+| `docs/serial-protocol.md` | Firmware wire protocol or serial timing changes |
+| `src/i18n.ts` | Translation keys or user-facing copy change |
 
 ## License
 
-By contributing, you agree that your code will be licensed under the same [AGPL v3 with additional commercial terms](./LICENSE) that covers the project.
+By contributing, you agree that your contribution is licensed under the same [AGPL v3 with additional commercial terms](./LICENSE) as the project.

@@ -44,10 +44,14 @@ export function getBandMean(
 
 export function getFocusInference(
   means: ReadonlyMap<BandMetric, number | null>,
+  options: { supportRatioThreshold?: number } = {},
 ): FocusInference {
   const betaMean = getBandMean(means, 'betaPower');
   const alphaMean = getBandMean(means, 'alphaPower');
   const thetaMean = getBandMean(means, 'thetaPower');
+  const supportRatioThreshold =
+    options.supportRatioThreshold ?? FOCUS_SUPPORT_RATIO_THRESHOLD;
+  const mixedRatioThreshold = supportRatioThreshold * 0.7;
   const denominator =
     alphaMean !== null && thetaMean !== null ? alphaMean + thetaMean : null;
   if (betaMean === null || denominator === null || denominator <= 0) {
@@ -55,8 +59,8 @@ export function getFocusInference(
   }
 
   const ratio = betaMean / denominator;
-  if (ratio >= FOCUS_SUPPORT_RATIO_THRESHOLD) return { status: 'supports', ratio };
-  if (ratio >= FOCUS_MIXED_RATIO_THRESHOLD) return { status: 'mixed', ratio };
+  if (ratio >= supportRatioThreshold) return { status: 'supports', ratio };
+  if (ratio >= mixedRatioThreshold) return { status: 'mixed', ratio };
   return { status: 'does-not-support', ratio };
 }
 

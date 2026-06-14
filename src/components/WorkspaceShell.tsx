@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Locale, TranslationKey } from '../i18n';
 import { t } from '../i18n';
 import { useAiStore } from '../store/aiStore';
@@ -15,8 +15,6 @@ interface WorkspaceShellProps {
   modeBadge: string;
   children: (activePage: WorkspacePage) => ReactNode;
 }
-
-const WORKSPACE_PAGE_STORAGE_KEY = 'eeg-workspace-active-page';
 
 const WORKSPACE_PAGES: readonly WorkspacePage[] = [
   'setup',
@@ -42,32 +40,18 @@ const PAGE_HINT_KEYS: Record<WorkspacePage, TranslationKey> = {
   system: 'page.systemHint',
 };
 
-function isWorkspacePage(value: string | null): value is WorkspacePage {
-  return Boolean(value && (WORKSPACE_PAGES as readonly string[]).includes(value));
-}
-
-function readStoredPage(): WorkspacePage {
-  if (typeof window === 'undefined') return 'setup';
-  const stored = window.localStorage.getItem(WORKSPACE_PAGE_STORAGE_KEY);
-  return isWorkspacePage(stored) ? stored : 'setup';
-}
-
 export function WorkspaceShell({
   locale,
   statusTone,
   modeBadge,
   children,
 }: WorkspaceShellProps) {
-  const [activePage, setActivePage] = useState<WorkspacePage>(() => readStoredPage());
+  const [activePage, setActivePage] = useState<WorkspacePage>('setup');
   const stream = useEegStore((state) => state.stream);
   const frameCount = useAiStore((state) => state.frameCount);
   const pendingWriteCount = useAiStore((state) => state.pendingWriteCount);
   const writeTimeoutCount = useAiStore((state) => state.writeTimeoutCount);
   const conversationId = useAiStore((state) => state.conversationId);
-
-  useEffect(() => {
-    window.localStorage.setItem(WORKSPACE_PAGE_STORAGE_KEY, activePage);
-  }, [activePage]);
 
   return (
     <main className="mx-auto grid max-w-[88rem] grid-cols-1 gap-4 px-4 pt-4 pb-16 lg:grid-cols-[15rem_minmax(0,1fr)] lg:px-5 lg:pt-6">

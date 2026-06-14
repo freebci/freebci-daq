@@ -2,6 +2,8 @@
 
 This document is the firmware-facing wire protocol implemented by the web frontend. The transport is Web Serial only; no backend service is involved.
 
+Page tuning values such as EMA alpha, alert threshold, unreliable warmup, and focus windows are browser-side analysis settings. They do not change this firmware protocol.
+
 Web Serial baudRate: 921600
 
 ## Transport

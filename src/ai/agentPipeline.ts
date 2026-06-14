@@ -28,6 +28,7 @@ import {
   type SkillId,
 } from './skills/skillRegistry';
 import { useAiStore } from '../store/aiStore';
+import { useEegStore } from '../store/eegStore';
 import type { Locale } from '../i18n';
 import { parseAiQuestionIntent } from './questionIntent';
 import {
@@ -198,7 +199,9 @@ function contextBuilder(
 }
 
 function isFocusInferenceUnclear(context: ContextPackV1): boolean {
-  const inference = getFocusInference(createBandMeanMap(context.summary));
+  const inference = getFocusInference(createBandMeanMap(context.summary), {
+    supportRatioThreshold: useEegStore.getState().analysis.engagementAlertThreshold,
+  });
   return inference.status === 'insufficient' || inference.status === 'mixed';
 }
 
@@ -329,6 +332,7 @@ function reportAgent(input: {
       locale: input.outputLocale,
       request: input.request,
       context: { ...input.context, detailTrace: input.detailTrace },
+      focusSupportRatioThreshold: useEegStore.getState().analysis.engagementAlertThreshold,
     }),
     findings,
     detailTrace: input.detailTrace,

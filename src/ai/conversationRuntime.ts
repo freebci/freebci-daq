@@ -318,6 +318,7 @@ export function recordAiBandFeatureResults(
     sampleRateHz?: number;
     filterId: string;
     filterParams: Record<string, number>;
+    initialUnreliableSeconds: number;
   },
 ): void {
   const state = useAiStore.getState();
@@ -351,6 +352,7 @@ export function recordAiBandFeatureResults(
       sampleRateHz: input.sampleRateHz,
       filterId: input.filterId,
       filterParams: input.filterParams,
+      initialUnreliableSeconds: input.initialUnreliableSeconds,
     });
   });
 

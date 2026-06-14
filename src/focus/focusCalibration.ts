@@ -2,6 +2,8 @@ import type { EegAnalysisPoint } from '../types/eeg';
 import { EEG_ANALYSIS_HISTORY_SECONDS } from '../config/eeg';
 import {
   FOCUS_BASELINE_SECONDS,
+  FOCUS_BASELINE_MAX_SECONDS,
+  FOCUS_BASELINE_MIN_SECONDS,
   FOCUS_DECISION_SECONDS,
   FOCUS_DECISION_MAX_SECONDS,
   FOCUS_DECISION_MIN_SECONDS,
@@ -11,6 +13,16 @@ import type {
   EegFocusCalibrationState,
   EegFocusStatePoint,
 } from './types';
+
+export interface EegFocusTimingConfig {
+  warmupSeconds: number;
+  baselineSeconds: number;
+}
+
+const DEFAULT_FOCUS_TIMING_CONFIG: EegFocusTimingConfig = {
+  warmupSeconds: FOCUS_WARMUP_SECONDS,
+  baselineSeconds: FOCUS_BASELINE_SECONDS,
+};
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
@@ -56,10 +68,14 @@ export function trimFocusStatePoints(points: EegFocusStatePoint[]): EegFocusStat
   return points.filter((point) => point.timeSeconds >= windowStartSeconds);
 }
 
-export function createInitialFocusCalibrationState(): EegFocusCalibrationState {
+export function createInitialFocusCalibrationState(
+  timingConfig = DEFAULT_FOCUS_TIMING_CONFIG,
+): EegFocusCalibrationState {
+  const warmupSeconds = clampFocusWarmupSeconds(timingConfig.warmupSeconds);
+
   return {
     phase: 'idle',
-    warmupEndsAtSeconds: FOCUS_WARMUP_SECONDS,
+    warmupEndsAtSeconds: warmupSeconds,
     baselineStartedAtSeconds: null,
     baselineEndsAtSeconds: null,
     baselineValue: null,
@@ -76,6 +92,7 @@ export function advanceFocusCalibration(
   outputWindowSeconds: number,
   analysisPoints: EegAnalysisPoint[],
   focusStatePoints: EegFocusStatePoint[],
+  timingConfig = DEFAULT_FOCUS_TIMING_CONFIG,
 ): {
   focusCalibration: EegFocusCalibrationState;
   focusStatePoints: EegFocusStatePoint[];
@@ -88,6 +105,7 @@ export function advanceFocusCalibration(
 
   let nextFocusCalibration = focusCalibration;
   let nextFocusStatePoints = focusStatePoints;
+  const baselineSeconds = clampFocusBaselineSeconds(timingConfig.baselineSeconds);
 
   if (
     nextFocusCalibration.phase === 'waiting-warmup' &&
@@ -98,7 +116,7 @@ export function advanceFocusCalibration(
       phase: 'collecting-baseline',
       baselineStartedAtSeconds: nextFocusCalibration.warmupEndsAtSeconds,
       baselineEndsAtSeconds:
-        nextFocusCalibration.warmupEndsAtSeconds + FOCUS_BASELINE_SECONDS,
+        nextFocusCalibration.warmupEndsAtSeconds + baselineSeconds,
       updatedAt: latestPoint.updatedAt,
     };
   }
@@ -133,7 +151,7 @@ export function advanceFocusCalibration(
         nextFocusCalibration = {
           ...nextFocusCalibration,
           baselineStartedAtSeconds: latestPoint.timeSeconds,
-          baselineEndsAtSeconds: latestPoint.timeSeconds + FOCUS_BASELINE_SECONDS,
+          baselineEndsAtSeconds: latestPoint.timeSeconds + baselineSeconds,
           updatedAt: latestPoint.updatedAt,
         };
       }
@@ -195,18 +213,21 @@ export function advanceFocusCalibration(
 
 export function createFocusCalibrationForCurrentStreamTime(
   currentStreamTimeSeconds: number,
+  timingConfig = DEFAULT_FOCUS_TIMING_CONFIG,
 ): EegFocusCalibrationState {
-  const canStartBaseline = currentStreamTimeSeconds >= FOCUS_WARMUP_SECONDS;
+  const warmupSeconds = clampFocusWarmupSeconds(timingConfig.warmupSeconds);
+  const baselineSeconds = clampFocusBaselineSeconds(timingConfig.baselineSeconds);
+  const canStartBaseline = currentStreamTimeSeconds >= warmupSeconds;
   const baselineStartedAtSeconds = canStartBaseline ? currentStreamTimeSeconds : null;
 
   return {
     phase: canStartBaseline ? 'collecting-baseline' : 'waiting-warmup',
-    warmupEndsAtSeconds: FOCUS_WARMUP_SECONDS,
+    warmupEndsAtSeconds: warmupSeconds,
     baselineStartedAtSeconds,
     baselineEndsAtSeconds:
       baselineStartedAtSeconds === null
         ? null
-        : baselineStartedAtSeconds + FOCUS_BASELINE_SECONDS,
+        : baselineStartedAtSeconds + baselineSeconds,
     baselineValue: null,
     referenceValue: null,
     lastDecisionWindowEndSeconds: null,
@@ -227,4 +248,17 @@ export function clampFocusOutputWindowSeconds(seconds: number): number {
     FOCUS_DECISION_MIN_SECONDS,
     Math.min(FOCUS_DECISION_MAX_SECONDS, Math.round(seconds)),
   );
+}
+
+export function clampFocusBaselineSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return FOCUS_BASELINE_SECONDS;
+  return Math.max(
+    FOCUS_BASELINE_MIN_SECONDS,
+    Math.min(FOCUS_BASELINE_MAX_SECONDS, Math.round(seconds)),
+  );
+}
+
+export function clampFocusWarmupSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return FOCUS_WARMUP_SECONDS;
+  return Math.max(0, Math.round(seconds));
 }

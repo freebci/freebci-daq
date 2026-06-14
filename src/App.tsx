@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlgorithmTrendPanel } from './components/AlgorithmTrendPanel';
+import { AnalysisTuningPanel } from './components/AnalysisTuningPanel';
 import { AiAnalysisSidebar, AiSessionPanel, AiSiteBindingPanel } from './components/AiAgentPanel';
 import { BottomStatusBar } from './components/BottomStatusBar';
 import { BrainHeatmapPanel } from './components/BrainHeatmapPanel';
@@ -163,6 +164,7 @@ function App() {
 
             {activePage === 'analysis' && (
               <>
+                <AnalysisTuningPanel locale={locale} />
                 <AlgorithmTrendPanel locale={locale} />
                 <FocusStatePanel locale={locale} />
               </>

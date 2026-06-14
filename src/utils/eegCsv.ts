@@ -17,6 +17,7 @@ export interface EegCsvAnnotations {
 export interface EegCsvFormatOptions extends EegCsvAnnotations {
   sampleOffset?: number;
   sampleRateHz?: number;
+  initialUnreliableSeconds?: number;
   channelNames?: readonly string[];
 }
 
@@ -123,12 +124,13 @@ function getReliableBatch(
   batch: EegSampleBatch,
   sampleOffset?: number,
   sampleRateHz = EEG_SAMPLE_RATE_HZ,
+  initialUnreliableSeconds = EEG_INITIAL_UNRELIABLE_SECONDS,
 ): EegSampleBatch {
   if (sampleOffset === undefined) {
     return batch;
   }
 
-  const firstReliableSampleIndex = EEG_INITIAL_UNRELIABLE_SECONDS * sampleRateHz;
+  const firstReliableSampleIndex = Math.max(0, initialUnreliableSeconds) * sampleRateHz;
   const samples = batch.samples.filter((_, index) => {
     return sampleOffset + index >= firstReliableSampleIndex;
   });
@@ -141,7 +143,12 @@ export function formatEegSampleBatchCsv(
   options?: EegCsvFormatOptions,
 ): string {
   const sampleRateHz = options?.sampleRateHz ?? EEG_SAMPLE_RATE_HZ;
-  const reliableBatch = getReliableBatch(batch, options?.sampleOffset, sampleRateHz);
+  const reliableBatch = getReliableBatch(
+    batch,
+    options?.sampleOffset,
+    sampleRateHz,
+    options?.initialUnreliableSeconds,
+  );
 
   if (reliableBatch.samples.length === 0) {
     return '';

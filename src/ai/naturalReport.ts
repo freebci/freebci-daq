@@ -530,9 +530,12 @@ function createFocusReportParts(
   locale: Locale,
   request: NaturalReportRequest,
   context: NaturalReportContext,
+  supportRatioThreshold?: number,
 ): Pick<AiAnalysisOutputV1['humanReport'], 'conclusion' | 'evidence' | 'caveats' | 'suggestions'> {
   const durationSeconds = formatDurationSeconds(request.timeRange);
-  const focusInference = getFocusInference(createBandMeanMap(context.summary));
+  const focusInference = getFocusInference(createBandMeanMap(context.summary), {
+    supportRatioThreshold,
+  });
 
   if (focusInference.status === 'insufficient') {
     return locale === 'zh-CN'
@@ -927,6 +930,7 @@ export function createNaturalHumanReport(input: {
   locale: Locale;
   request: NaturalReportRequest;
   context: NaturalReportContext;
+  focusSupportRatioThreshold?: number;
 }): AiAnalysisOutputV1['humanReport'] {
   const questionIntent = parseAiQuestionIntent(input.request.userGoal);
   const mentalStateTarget = questionIntent.primaryMentalStateTarget;
@@ -961,7 +965,12 @@ export function createNaturalHumanReport(input: {
   if (questionIntent.asksFocus) {
     return {
       title,
-      ...createFocusReportParts(input.locale, input.request, input.context),
+      ...createFocusReportParts(
+        input.locale,
+        input.request,
+        input.context,
+        input.focusSupportRatioThreshold,
+      ),
     };
   }
 

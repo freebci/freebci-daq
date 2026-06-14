@@ -98,6 +98,9 @@ export function DataStreamPanel({
   const wasStreamBusyRef = useRef(false);
   const status = useEegStore((state) => state.status);
   const stream = useEegStore((state) => state.stream);
+  const initialUnreliableSeconds = useEegStore(
+    (state) => state.analysis.initialUnreliableSeconds,
+  );
   const isStreamBusy = stream.isStarting || stream.isStreaming;
   const fiveBandRecordingEnabled = !isAiReadOnly && recordFiveBandFeatures;
   const canStart =
@@ -217,7 +220,7 @@ export function DataStreamPanel({
         </form>
 
         <p className="m-0 text-[0.8rem] text-meta leading-relaxed">
-          {t(locale, 'stream.serialHelp')}
+          {t(locale, 'stream.serialHelp', { seconds: initialUnreliableSeconds })}
         </p>
 
         <dl className="grid grid-cols-2 gap-3 border-t border-hairline pt-5 sm:grid-cols-3 lg:grid-cols-4">

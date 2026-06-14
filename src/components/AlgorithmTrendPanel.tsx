@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { Plus, Timer, X } from 'lucide-react';
 import {
-  EEG_INITIAL_UNRELIABLE_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
 } from '../config/eeg';
@@ -155,12 +154,12 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
   const engagementAlertThreshold = useEegStore(
     (state) => state.analysis.engagementAlertThreshold,
   );
+  const initialUnreliableSeconds = useEegStore(
+    (state) => state.analysis.initialUnreliableSeconds,
+  );
   const annotationLabels = useEegStore((state) => state.annotationLabels);
   const annotationRecords = useEegStore((state) => state.annotationRecords);
   const setLiveWindowSeconds = useEegStore((state) => state.setLiveWindowSeconds);
-  const setEngagementAlertThreshold = useEegStore(
-    (state) => state.setEngagementAlertThreshold,
-  );
   const addAnnotationLabel = useEegStore((state) => state.addAnnotationLabel);
   const removeAnnotationLabel = useEegStore((state) => state.removeAnnotationLabel);
   const recordAnnotation = useEegStore((state) => state.recordAnnotation);
@@ -349,10 +348,6 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
     event.currentTarget.blur();
   }
 
-  function handleEngagementAlertThresholdChange(event: ChangeEvent<HTMLInputElement>) {
-    setEngagementAlertThreshold(Number(event.currentTarget.value));
-  }
-
   function handleAddAnnotationLabel(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canConfigureAnnotations) return;
@@ -415,7 +410,7 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
   const curve = primaryCurve?.curve ?? [];
   const polyline = primaryCurve?.polyline ?? '';
   const initialUnreliableCurve = curve.filter(
-    (p) => p.point.timeSeconds <= EEG_INITIAL_UNRELIABLE_SECONDS,
+    (p) => p.point.timeSeconds <= initialUnreliableSeconds,
   );
   const initialUnreliablePolyline = initialUnreliableCurve
     .map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`)
@@ -475,7 +470,7 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
   const heroCurrent = latestPoint?.engagementIndex ?? null;
   const heroLatestSeconds = latestPoint?.timeSeconds ?? null;
   const isHeroUnreliable =
-    (heroLatestSeconds ?? Infinity) <= EEG_INITIAL_UNRELIABLE_SECONDS;
+    (heroLatestSeconds ?? Infinity) <= initialUnreliableSeconds;
   const heroCurrentTone = isHeroUnreliable
     ? 'text-warn'
     : isBelowEngagementAlert(heroCurrent, engagementAlertThreshold)
@@ -483,7 +478,7 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
       : 'text-ink';
 
   function getTrendPointColor(point: EegAnalysisPoint): string {
-    if (point.timeSeconds <= EEG_INITIAL_UNRELIABLE_SECONDS) {
+    if (point.timeSeconds <= initialUnreliableSeconds) {
       return INITIAL_UNRELIABLE_COLOR;
     }
     return isBelowEngagementAlert(point.engagementIndex, engagementAlertThreshold)
@@ -558,18 +553,6 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
               onChange={handleLiveWindowSecondsChange}
               onBlur={(event) => commitLiveWindowSeconds(event.currentTarget.value)}
               onKeyDown={handleLiveWindowSecondsKeyDown}
-            />
-          </Field>
-          <Field
-            label={t(locale, 'trend.alertThresholdLabel')}
-            htmlFor="engagement-alert-threshold"
-          >
-            <NumberInput
-              id="engagement-alert-threshold"
-              min={0}
-              step={0.05}
-              value={engagementAlertThreshold}
-              onChange={handleEngagementAlertThresholdChange}
             />
           </Field>
         </div>
@@ -685,7 +668,11 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
             style={{ backgroundColor: INITIAL_UNRELIABLE_COLOR }}
             aria-hidden="true"
           />
-          <span>{t(locale, 'trend.initialSettlingWarning')}</span>
+          <span>
+            {t(locale, 'trend.initialSettlingWarning', {
+              seconds: initialUnreliableSeconds,
+            })}
+          </span>
         </div>
 
         {!isDrawingEnabled && (
@@ -1059,7 +1046,7 @@ export function AlgorithmTrendPanel({ locale }: AlgorithmTrendPanelProps) {
                   </span>
                   <span
                     className={`font-mono text-[0.78rem] tabular ${
-                      selectedPoint.timeSeconds <= EEG_INITIAL_UNRELIABLE_SECONDS
+                      selectedPoint.timeSeconds <= initialUnreliableSeconds
                         ? 'text-warn'
                         : isBelowEngagementAlert(
                             selectedPoint.engagementIndex,

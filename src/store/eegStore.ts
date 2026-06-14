@@ -20,9 +20,14 @@ import type {
 import type { SiteBindingV1 } from '../ai/protocol';
 import {
   EEG_ANALYSIS_HISTORY_SECONDS,
+  EEG_DEFAULT_ENGAGEMENT_ALERT_THRESHOLD,
+  EEG_DEFAULT_ENGAGEMENT_EMA_ALPHA,
   EEG_DEFAULT_FFT_SIZE,
+  EEG_DEFAULT_INITIAL_UNRELIABLE_SECONDS,
   EEG_ENGAGEMENT_ALERT_THRESHOLD,
   EEG_ENGAGEMENT_EMA_ALPHA,
+  EEG_INITIAL_UNRELIABLE_MAX_SECONDS,
+  EEG_INITIAL_UNRELIABLE_MIN_SECONDS,
   EEG_LIVE_WINDOW_MAX_SECONDS,
   EEG_LIVE_WINDOW_MIN_SECONDS,
   EEG_LIVE_WINDOW_SECONDS,
@@ -35,9 +40,9 @@ import {
   type EegFilterId,
 } from '../analysis/filterRegistry';
 import type { EegSpectrumSnapshot } from '../types/eeg';
-import type { EegFocusCalibrationState, EegFocusStatePoint } from '../focus/types';
 import {
-  FOCUS_DECISION_SECONDS,
+  FOCUS_DEFAULT_BASELINE_SECONDS,
+  FOCUS_DEFAULT_DECISION_SECONDS,
   FOCUS_DECISION_MIN_SECONDS,
   FOCUS_DECISION_MAX_SECONDS,
 } from '../focus/config';
@@ -46,6 +51,7 @@ import {
   advanceFocusCalibration,
   createFocusCalibrationForCurrentStreamTime,
   clampFocusReferenceValue,
+  clampFocusBaselineSeconds,
   clampFocusOutputWindowSeconds,
   trimFocusStatePoints,
 } from '../focus/focusCalibration';
@@ -102,6 +108,10 @@ interface EegStore extends AcquisitionState {
   setSelectedFilter: (filterId: EegFilterId, params?: Record<string, number>) => void;
   setFilterParam: (key: string, value: number) => void;
   resetFilterParams: () => void;
+  setEngagementEmaAlpha: (alpha: number) => void;
+  setInitialUnreliableSeconds: (seconds: number) => void;
+  setFocusBaselineSeconds: (seconds: number) => void;
+  resetAnalysisTuning: () => void;
   setLiveWindowSeconds: (seconds: number) => void;
   setEngagementAlertThreshold: (threshold: number) => void;
   beginFocusBaseline: () => void;
@@ -176,9 +186,12 @@ function createInitialAnalysisState() {
     selectedFilterId: DEFAULT_FILTER_ID,
     filterParams: getFilterDefaultParams(DEFAULT_FILTER_ID),
     fftSize: EEG_DEFAULT_FFT_SIZE as number,
-    focusOutputWindowSeconds: FOCUS_DECISION_SECONDS,
+    engagementEmaAlpha: EEG_DEFAULT_ENGAGEMENT_EMA_ALPHA,
+    initialUnreliableSeconds: EEG_DEFAULT_INITIAL_UNRELIABLE_SECONDS,
+    focusBaselineSeconds: FOCUS_DEFAULT_BASELINE_SECONDS,
+    focusOutputWindowSeconds: FOCUS_DEFAULT_DECISION_SECONDS,
     liveWindowSeconds: EEG_LIVE_WINDOW_SECONDS,
-    engagementAlertThreshold: EEG_ENGAGEMENT_ALERT_THRESHOLD,
+    engagementAlertThreshold: EEG_DEFAULT_ENGAGEMENT_ALERT_THRESHOLD,
     bandPowers: null,
     engagementIndex: null,
     engagementEma: null as number | null,
@@ -256,9 +269,22 @@ function clampLiveWindowSeconds(seconds: number): number {
   );
 }
 
+function clampEngagementEmaAlpha(alpha: number): number {
+  if (!Number.isFinite(alpha)) return EEG_ENGAGEMENT_EMA_ALPHA;
+  return Math.max(0, Math.min(1, alpha));
+}
+
 function clampEngagementAlertThreshold(threshold: number): number {
   if (!Number.isFinite(threshold)) return EEG_ENGAGEMENT_ALERT_THRESHOLD;
   return Math.max(0, threshold);
+}
+
+function clampInitialUnreliableSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return EEG_DEFAULT_INITIAL_UNRELIABLE_SECONDS;
+  return Math.max(
+    EEG_INITIAL_UNRELIABLE_MIN_SECONDS,
+    Math.min(EEG_INITIAL_UNRELIABLE_MAX_SECONDS, Math.round(seconds)),
+  );
 }
 
 function normalizeChannelName(channelName: string | undefined): string {
@@ -272,6 +298,23 @@ function getCurrentStreamTimeSeconds(sampleCount: number, sampleRateHz = EEG_SAM
 
 function getCurrentAcquisitionSampleRateHz(state: AcquisitionState): number {
   return getEffectiveEegHardwareSampleRateHz(state.acquisition.hardwareConfig);
+}
+
+function getFocusTimingConfig(state: AcquisitionState) {
+  return {
+    warmupSeconds: state.analysis.initialUnreliableSeconds,
+    baselineSeconds: state.analysis.focusBaselineSeconds,
+  };
+}
+
+function createFocusCalibrationForTiming(
+  initialUnreliableSeconds: number,
+  focusBaselineSeconds: number,
+) {
+  return createInitialFocusCalibrationState({
+    warmupSeconds: initialUnreliableSeconds,
+    baselineSeconds: focusBaselineSeconds,
+  });
 }
 
 export const useEegStore = create<EegStore>((set) => ({
@@ -442,7 +485,7 @@ export const useEegStore = create<EegStore>((set) => ({
         channels: {
           ch0: createEmptyChannelAnalysisState(),
         },
-        focusCalibration: createInitialFocusCalibrationState(),
+        focusCalibration: createInitialFocusCalibrationState(getFocusTimingConfig(state)),
       },
       analysisPoints: [],
       focusStatePoints: [],
@@ -549,6 +592,7 @@ export const useEegStore = create<EegStore>((set) => ({
         const { results: smoothed, nextEma } = smoothEngagementResults(
           [{ ...result, channelName }],
           previousChannel.engagementEma,
+          state.analysis.engagementEmaAlpha,
         );
         const smoothedResult = smoothed[0] ?? { ...result, channelName };
 
@@ -580,6 +624,7 @@ export const useEegStore = create<EegStore>((set) => ({
         state.analysis.focusOutputWindowSeconds,
         primaryAnalysisPoints,
         state.focusStatePoints,
+        getFocusTimingConfig(state),
       );
 
       return {
@@ -670,6 +715,63 @@ export const useEegStore = create<EegStore>((set) => ({
         filterParams: getFilterDefaultParams(DEFAULT_FILTER_ID),
       },
     })),
+  setEngagementEmaAlpha: (alpha) =>
+    set((state) => ({
+      analysis: {
+        ...state.analysis,
+        engagementEmaAlpha: clampEngagementEmaAlpha(alpha),
+      },
+    })),
+  setInitialUnreliableSeconds: (seconds) =>
+    set((state) => {
+      const initialUnreliableSeconds = clampInitialUnreliableSeconds(seconds);
+
+      return {
+        analysis: {
+          ...state.analysis,
+          initialUnreliableSeconds,
+          focusCalibration: createFocusCalibrationForTiming(
+            initialUnreliableSeconds,
+            state.analysis.focusBaselineSeconds,
+          ),
+        },
+        focusStatePoints: [],
+      };
+    }),
+  setFocusBaselineSeconds: (seconds) =>
+    set((state) => {
+      const focusBaselineSeconds = clampFocusBaselineSeconds(seconds);
+
+      return {
+        analysis: {
+          ...state.analysis,
+          focusBaselineSeconds,
+          focusCalibration: createFocusCalibrationForTiming(
+            state.analysis.initialUnreliableSeconds,
+            focusBaselineSeconds,
+          ),
+        },
+        focusStatePoints: [],
+      };
+    }),
+  resetAnalysisTuning: () =>
+    set((state) => {
+      const initialUnreliableSeconds = EEG_DEFAULT_INITIAL_UNRELIABLE_SECONDS;
+
+      return {
+        analysis: {
+          ...state.analysis,
+          engagementEmaAlpha: EEG_DEFAULT_ENGAGEMENT_EMA_ALPHA,
+          engagementAlertThreshold: EEG_DEFAULT_ENGAGEMENT_ALERT_THRESHOLD,
+          initialUnreliableSeconds,
+          focusCalibration: createFocusCalibrationForTiming(
+            initialUnreliableSeconds,
+            state.analysis.focusBaselineSeconds,
+          ),
+        },
+        focusStatePoints: [],
+      };
+    }),
   setLiveWindowSeconds: (seconds) =>
     set((state) => ({
       analysis: {
@@ -696,6 +798,7 @@ export const useEegStore = create<EegStore>((set) => ({
           ...state.analysis,
           focusCalibration: createFocusCalibrationForCurrentStreamTime(
             currentStreamTimeSeconds,
+            getFocusTimingConfig(state),
           ),
         },
         focusStatePoints: [],

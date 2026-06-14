@@ -327,6 +327,7 @@ export function useAcquisitionActions(locale: Locale) {
             records: store.annotationRecords,
             sampleOffset: streamSampleOffset,
             sampleRateHz,
+            initialUnreliableSeconds: store.analysis.initialUnreliableSeconds,
             channelNames: getEegChannelNames(store.acquisition.channelCount),
           }),
         );
@@ -378,6 +379,7 @@ export function useAcquisitionActions(locale: Locale) {
           sampleRateHz,
           filterId: DEFAULT_FILTER_ID,
           filterParams: store.analysis.filterParams,
+          initialUnreliableSeconds: store.analysis.initialUnreliableSeconds,
         });
       }
     },

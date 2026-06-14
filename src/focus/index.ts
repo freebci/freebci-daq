@@ -6,10 +6,14 @@ export {
   createFocusCalibrationForCurrentStreamTime,
   clampFocusReferenceValue,
   clampFocusOutputWindowSeconds,
+  clampFocusBaselineSeconds,
+  clampFocusWarmupSeconds,
   trimFocusStatePoints,
 } from './focusCalibration';
 export {
   FOCUS_BASELINE_SECONDS,
+  FOCUS_BASELINE_MIN_SECONDS,
+  FOCUS_BASELINE_MAX_SECONDS,
   FOCUS_DECISION_SECONDS,
   FOCUS_DECISION_MIN_SECONDS,
   FOCUS_DECISION_MAX_SECONDS,

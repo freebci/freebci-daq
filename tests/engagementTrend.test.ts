@@ -243,6 +243,20 @@ describe('eegStore engagement trend settings', () => {
     expect(s.analysisPoints.map((p) => p.engagementIndex)).toEqual([0, expectedEma]);
   });
 
+  it('uses the configured page EMA alpha for new realtime EI points', () => {
+    const store = useEegStore;
+    store.getState().reset();
+    store.getState().setEngagementEmaAlpha(0.5);
+
+    store.getState().recordAnalysisResults([
+      baseResult(0.5, 0),
+      baseResult(10.5, 10),
+    ]);
+
+    expect(store.getState().analysis.engagementIndex).toBeCloseTo(5, 6);
+    expect(store.getState().analysisPoints.map((p) => p.engagementIndex)).toEqual([0, 5]);
+  });
+
   it('keeps channel EMA state independent and keeps primary EI on ch0', () => {
     const store = useEegStore;
     store.getState().reset();
@@ -306,6 +320,24 @@ describe('eegStore engagement trend settings', () => {
 
     store.getState().setEngagementAlertThreshold(-1);
     expect(store.getState().analysis.engagementAlertThreshold).toBe(0);
+  });
+
+  it('uses page-configured warmup and baseline timing for focus calibration', () => {
+    const store = useEegStore;
+    store.getState().reset();
+    store.getState().setInitialUnreliableSeconds(5);
+    store.getState().setFocusBaselineSeconds(10);
+    store.getState().setStreamActive('serial', false);
+
+    advanceStreamSamples(EEG_SAMPLE_RATE_HZ * 5 + 1);
+    store.getState().beginFocusBaseline();
+
+    expect(store.getState().analysis.focusCalibration).toMatchObject({
+      phase: 'collecting-baseline',
+      warmupEndsAtSeconds: 5,
+      baselineStartedAtSeconds: 5,
+      baselineEndsAtSeconds: 15,
+    });
   });
 
   it('collects focus baseline after the warmup and emits binary states', () => {

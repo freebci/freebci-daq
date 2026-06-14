@@ -96,6 +96,9 @@ export interface EegAnalysisState {
   selectedFilterId: EegFilterId;
   filterParams: Record<string, number>;
   fftSize: number;
+  engagementEmaAlpha: number;
+  initialUnreliableSeconds: number;
+  focusBaselineSeconds: number;
   focusOutputWindowSeconds: number;
   liveWindowSeconds: number;
   engagementAlertThreshold: number;

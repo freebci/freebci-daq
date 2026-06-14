@@ -1,62 +1,86 @@
-<p align="center">
-  <img src="./Screenshot.png" alt="FreeBCI DAQ" width="800">
-</p>
-
-<div align="center">
-
 # FreeBCI DAQ
 
-[![License](https://img.shields.io/badge/License-AGPL_v3-blue)](./LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6)]()
-[![Version](https://img.shields.io/badge/version-0.1.0-d9d9d9)]()
+Browser-based EEG acquisition and real-time analysis for the FreeBCI Web Serial workflow.
 
-浏览器端 EEG 脑电信号采集与实时分析平台  
-Browser-based EEG acquisition & real-time analysis
-
-</div>
-
-FreeBCI DAQ connects to EEG hardware via **Web Serial** and provides real-time waveforms, spectral analysis (FFT), engagement index (EI), binary focus classification, and AI-assisted interpretation — all running locally in your browser. No backend. No cloud. Your data stays on your machine.
+FreeBCI DAQ is a static React + TypeScript + Vite application. It talks to EEG hardware through Web Serial, renders raw and filtered waveforms, computes FFT band powers and engagement index (EI), records CSV and AI five-band frames locally, and provides focus calibration plus AI-assisted interpretation. There is no backend service in the production app; `dist/` is served as static files.
 
 本项目是 [The FreeBCI Project](https://github.com/freebci) 的一部分，由 [北京脑机接口商业有限公司](https://www.bbci.net) 支持。
 
 ## Quick Start
 
-Requires **Chrome** or **Edge** with Web Serial support, served from `localhost`, `127.0.0.1`, or HTTPS.
+Requirements:
+
+- Node.js `^20.19.0` or `>=22.12.0`
+- Chrome or Edge with Web Serial support
+- `localhost`, `127.0.0.1`, or HTTPS
+- Real EEG hardware for end-to-end acquisition testing
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`, connect your EEG device, confirm hardware parameters and site bindings, then start collection.
+Open `http://localhost:5173`, then complete the setup flow:
 
-## Features
+1. Confirm hardware parameters.
+2. Confirm acquisition site bindings.
+3. Open the serial device.
+4. Start collection and optionally choose a CSV output file.
 
-| | |
+## Commands
+
+```bash
+npm run dev          # Vite dev server
+npm run typecheck    # TypeScript check for src/
+npm run test:unit    # Vitest unit tests
+npm test             # typecheck + unit tests
+npm run build        # typecheck + production build to dist/
+npm run preview      # preview the built dist/
+```
+
+The scripts call package-local CLIs directly instead of relying on `node_modules/.bin` shims. This keeps `dev`, `test`, and `build` usable even when local npm shims are malformed.
+
+`package-lock.json` is committed and is allowed to change after `npm install` or dependency fixes. Keep those changes when they reflect npm's resolved tree, then verify with `npm ls`, `npm audit`, `npm test`, and `npm run build`.
+
+## Current Features
+
+| Area | What it does |
 |---|---|
-| **EEG 采集** | Web Serial 直连硬件，`EEGRST` / `EEGCFG` / `SW,START` 协议，int24 二进制帧 |
-| **实时波形** | 原始信号与滤波后信号双通道 Canvas 渲染 |
-| **频域分析** | 2s 滑动窗口 FFT，输出 δ / θ / α / β / γ 五频带功率 |
-| **专注度指数** | EI = β / (α + θ)，EMA 平滑，可配置告警阈值 |
-| **专注状态判定** | Baseline 校准 + 滑动窗口二元分类（专注 / 不专注） |
-| **AI 分析** | 自然语言提问，支持 OpenAI / DeepSeek / Ollama，无 API Key 时自动回退本地分析 |
-| **CSV 导出** | 实时落盘，带 EEG channel/site 元数据头 |
-| **中英双语** | zh-CN / en-US 一键切换，400+ 界面文案全覆盖 |
+| Acquisition | Web Serial only; sends `EEGRST`, `EEGCFG`, `SW,START`; parses int24 binary frames |
+| Waveforms | Raw and filtered channel rendering through observer buses |
+| Spectral analysis | 2s FFT window, 0.5s hop, delta/theta/alpha/beta/gamma powers |
+| Engagement Index | EI = beta / (alpha + theta), EMA-smoothed in the store |
+| Page tuning | Algorithms page controls EMA alpha, EI alert threshold, and unreliable warmup |
+| Focus state | Warmup + baseline calibration + rolling binary focused/not-focused state |
+| AI analysis | Local IndexedDB five-band frames, natural-language reports, OpenAI-compatible providers, local fallback |
+| Export | Raw CSV with channel/site metadata, annotation columns, and unreliable-warmup skipping |
+| Languages | `zh-CN` default and `en-US` |
 
-## Documentation
+## Documentation Map
 
-- **[ROADMAP.md](./ROADMAP.md)** — 版本规划：算法、WASM、蓝牙、桌面版
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — 架构设计、数据流、设计模式
-- **[TUNING.md](./TUNING.md)** — 参数调参指南（EMA、告警阈值、专注判定窗口）
-- **[I18N.md](./I18N.md)** — 中英文翻译对照表
-- **[AGENTS.md](./AGENTS.md)** — 开发命令、架构边界、检查清单
+| Document | Purpose |
+|---|---|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Runtime architecture, tuning, roadmap, technical debt |
+| [docs/serial-protocol.md](./docs/serial-protocol.md) | Firmware-facing serial protocol |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Contributor setup, PR workflow, code boundaries |
+| [AGENTS.md](./AGENTS.md) | Concise agent/developer operating notes |
+
+Translations live in `src/i18n.ts`; keep `zh-CN` and `en-US` keys in sync when editing user-visible copy.
+
+## Hard Boundaries
+
+- Keep the app static; do not introduce a backend runtime.
+- Current transport is Web Serial only; do not add Web Bluetooth, GATT, Notify, or UUID filtering code.
+- Keep non-serializable Web API objects out of Zustand.
+- Keep tuning in page UI state; do not add runtime config files for tuning.
 
 ## License
 
 AGPL v3 with additional commercial terms. See [LICENSE](./LICENSE).
 
-- Academic research, education, personal use — **free**
-- Commercial use — **requires a separate license**
-- Copyright 2026 北京脑机接口商业有限公司 / Beijing Brain-Computer Interface Co., Ltd.
+- Academic research, education, personal use: free
+- Commercial use: requires a separate license
+
+Copyright 2026 北京脑机接口商业有限公司 / Beijing Brain-Computer Interface Co., Ltd.
 
 Commercial licensing: [https://www.bbci.net](https://www.bbci.net)

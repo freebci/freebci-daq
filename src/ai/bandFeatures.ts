@@ -18,6 +18,7 @@ export interface BandFeatureFrameOptions {
   streamStartedAtMs: number | null;
   fftSize: number;
   sampleRateHz?: number;
+  initialUnreliableSeconds?: number;
   filterId: string;
   filterParams: Record<string, number>;
   createdAtMs?: number;
@@ -44,13 +45,16 @@ export function getBandFeatureQualityFlags(
   input: {
     streamTimeSeconds: number;
     filterParams: Record<string, number>;
+    initialUnreliableSeconds?: number;
   },
 ): BandFeatureQualityFlag[] {
   const flags: BandFeatureQualityFlag[] = [];
   const hpCutoffHz = input.filterParams.hpCutoffHz;
   const lpCutoffHz = input.filterParams.lpCutoffHz;
+  const initialUnreliableSeconds =
+    input.initialUnreliableSeconds ?? EEG_INITIAL_UNRELIABLE_SECONDS;
 
-  if (input.streamTimeSeconds < EEG_INITIAL_UNRELIABLE_SECONDS) {
+  if (input.streamTimeSeconds < Math.max(0, initialUnreliableSeconds)) {
     flags.push('initialUnreliable');
   }
   if (typeof lpCutoffHz === 'number' && lpCutoffHz < FIVE_BAND_CATALOG.gamma.maxHz) {
@@ -81,6 +85,7 @@ export function createBandFeatureFrame(
   const qualityFlags = getBandFeatureQualityFlags({
     streamTimeSeconds: result.timeSeconds,
     filterParams: options.filterParams,
+    initialUnreliableSeconds: options.initialUnreliableSeconds,
   });
 
   return validateBandFeatureFrame({

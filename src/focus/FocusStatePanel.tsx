@@ -18,10 +18,10 @@ import { getEffectiveEegHardwareSampleRateHz } from '../transport/eegHardwareCon
 import { formatAnalysisMetric, formatAnalysisSeconds } from '../utils/analysisFormat';
 import { Button, Card, CardBody, CardHeader, Field, NumberInput, ToggleSwitch } from '../components/ui';
 import {
-  FOCUS_BASELINE_SECONDS,
+  FOCUS_BASELINE_MAX_SECONDS,
+  FOCUS_BASELINE_MIN_SECONDS,
   FOCUS_DECISION_MAX_SECONDS,
   FOCUS_DECISION_MIN_SECONDS,
-  FOCUS_WARMUP_SECONDS,
 } from './config';
 import type { EegFocusCalibrationPhase, EegFocusStatePoint } from './types';
 
@@ -58,15 +58,27 @@ function clampOutputWindowSeconds(seconds: number): number {
   );
 }
 
+function clampBaselineSeconds(seconds: number): number {
+  if (!Number.isFinite(seconds)) return 15;
+  return Math.max(
+    FOCUS_BASELINE_MIN_SECONDS,
+    Math.min(FOCUS_BASELINE_MAX_SECONDS, Math.round(seconds)),
+  );
+}
+
 function getCurrentStreamTimeSeconds(sampleCount: number, sampleRateHz: number): number {
   if (!Number.isFinite(sampleCount) || sampleCount <= 0) return 0;
   return (sampleCount - 1) / sampleRateHz;
 }
 
-function getPhaseLabel(locale: Locale, phase: EegFocusCalibrationPhase): string {
+function getPhaseLabel(
+  locale: Locale,
+  phase: EegFocusCalibrationPhase,
+  warmupSeconds: number,
+): string {
   switch (phase) {
     case 'waiting-warmup':
-      return t(locale, 'focus.phaseWaitingWarmup');
+      return t(locale, 'focus.phaseWaitingWarmup', { seconds: warmupSeconds });
     case 'collecting-baseline':
       return t(locale, 'focus.phaseCollectingBaseline');
     case 'active':
@@ -121,6 +133,10 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   const focusOutputWindowSeconds = useEegStore(
     (state) => state.analysis.focusOutputWindowSeconds,
   );
+  const focusBaselineSeconds = useEegStore((state) => state.analysis.focusBaselineSeconds);
+  const initialUnreliableSeconds = useEegStore(
+    (state) => state.analysis.initialUnreliableSeconds,
+  );
   const focusCalibration = useEegStore((state) => state.analysis.focusCalibration);
   const focusStatePoints = useEegStore((state) =>
     isDrawingEnabled ? state.focusStatePoints : EMPTY_FOCUS_STATE_POINTS,
@@ -129,6 +145,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   const beginFocusBaseline = useEegStore((state) => state.beginFocusBaseline);
   const setFocusReferenceValue = useEegStore((state) => state.setFocusReferenceValue);
   const setLiveWindowSeconds = useEegStore((state) => state.setLiveWindowSeconds);
+  const setFocusBaselineSeconds = useEegStore((state) => state.setFocusBaselineSeconds);
   const setFocusOutputWindowSeconds = useEegStore(
     (state) => state.setFocusOutputWindowSeconds,
   );
@@ -137,6 +154,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const videoFileInputRef = useRef<HTMLInputElement | null>(null);
   const [windowDraft, setWindowDraft] = useState(String(liveWindowSeconds));
+  const [baselineDraft, setBaselineDraft] = useState(String(focusBaselineSeconds));
   const [outputWindowDraft, setOutputWindowDraft] = useState(String(focusOutputWindowSeconds));
   const [referenceDraft, setReferenceDraft] = useState('');
   const [selectedVideoName, setSelectedVideoName] = useState<string | null>(null);
@@ -150,9 +168,9 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   );
   const warmupRemainingSeconds = Math.max(
     0,
-    FOCUS_WARMUP_SECONDS - currentStreamTimeSeconds,
+    initialUnreliableSeconds - currentStreamTimeSeconds,
   );
-  const isWarmupReady = currentStreamTimeSeconds >= FOCUS_WARMUP_SECONDS;
+  const isWarmupReady = currentStreamTimeSeconds >= initialUnreliableSeconds;
   const isCollectingBaseline = focusCalibration.phase === 'collecting-baseline';
   const canCollectBaseline = stream.isStreaming && isWarmupReady;
   const baselineRemainingSeconds =
@@ -166,7 +184,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
           Math.min(
             1,
             (currentStreamTimeSeconds - focusCalibration.baselineStartedAtSeconds) /
-              FOCUS_BASELINE_SECONDS,
+              focusBaselineSeconds,
           ),
         )
       : 0;
@@ -180,6 +198,10 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   useEffect(() => {
     setOutputWindowDraft(String(focusOutputWindowSeconds));
   }, [focusOutputWindowSeconds]);
+
+  useEffect(() => {
+    setBaselineDraft(String(focusBaselineSeconds));
+  }, [focusBaselineSeconds]);
 
   useEffect(() => {
     setWindowDraft(String(liveWindowSeconds));
@@ -255,6 +277,32 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
   function handleWindowSecondsKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
     if (event.key !== 'Enter') return;
     commitWindowSeconds(event.currentTarget.value);
+    event.currentTarget.blur();
+  }
+
+  function commitBaselineSeconds(raw: string): void {
+    const next = clampBaselineSeconds(Number(raw));
+    setFocusBaselineSeconds(next);
+    setBaselineDraft(String(next));
+  }
+
+  function handleBaselineSecondsChange(event: ChangeEvent<HTMLInputElement>): void {
+    const raw = event.currentTarget.value;
+    setBaselineDraft(raw);
+
+    const parsed = Number(raw);
+    if (
+      Number.isFinite(parsed) &&
+      parsed >= FOCUS_BASELINE_MIN_SECONDS &&
+      parsed <= FOCUS_BASELINE_MAX_SECONDS
+    ) {
+      setFocusBaselineSeconds(Math.round(parsed));
+    }
+  }
+
+  function handleBaselineSecondsKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.key !== 'Enter') return;
+    commitBaselineSeconds(event.currentTarget.value);
     event.currentTarget.blur();
   }
 
@@ -347,9 +395,9 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
               title={
                 !stream.isStreaming
                   ? t(locale, 'focus.streamRequired')
-                  : !isWarmupReady
-                    ? t(locale, 'focus.warmupLocked', {
-                        warmup: FOCUS_WARMUP_SECONDS,
+                    : !isWarmupReady
+                      ? t(locale, 'focus.warmupLocked', {
+                        warmup: initialUnreliableSeconds,
                         seconds: Math.ceil(warmupRemainingSeconds),
                       })
                     : undefined
@@ -370,7 +418,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
                 {t(locale, 'focus.phaseLabel')}
               </div>
               <div className="mt-1 text-[0.9rem] font-medium text-ink">
-                {getPhaseLabel(locale, focusCalibration.phase)}
+                {getPhaseLabel(locale, focusCalibration.phase, initialUnreliableSeconds)}
               </div>
             </div>
             <div className="border border-hairline bg-surface-2 px-3 py-2">
@@ -418,8 +466,24 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
               />
             </Field>
             <Field
+              label={t(locale, 'focus.baselineSecondsLabel')}
+              htmlFor="focus-baseline-seconds"
+              hint={t(locale, 'focus.baselineSecondsHint')}
+            >
+              <NumberInput
+                id="focus-baseline-seconds"
+                value={baselineDraft}
+                min={FOCUS_BASELINE_MIN_SECONDS}
+                max={FOCUS_BASELINE_MAX_SECONDS}
+                step={5}
+                onChange={handleBaselineSecondsChange}
+                onBlur={(event) => commitBaselineSeconds(event.currentTarget.value)}
+                onKeyDown={handleBaselineSecondsKeyDown}
+              />
+            </Field>
+            <Field
               label={t(locale, 'focus.videoSourceLabel')}
-              hint={t(locale, 'focus.videoSourceHint')}
+              hint={t(locale, 'focus.videoSourceHint', { seconds: focusBaselineSeconds })}
             >
               <div className="flex items-center gap-2">
                 <input
@@ -497,7 +561,7 @@ export function FocusStatePanel({ locale }: FocusStatePanelProps) {
         {stream.isStreaming && !isWarmupReady && (
           <p className="m-0 text-[0.85rem] text-meta">
             {t(locale, 'focus.warmupLocked', {
-              warmup: FOCUS_WARMUP_SECONDS,
+              warmup: initialUnreliableSeconds,
               seconds: Math.ceil(warmupRemainingSeconds),
             })}
           </p>
