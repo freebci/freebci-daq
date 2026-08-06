@@ -61,6 +61,7 @@ export function BottomStatusBar({
   onToggleLocale,
 }: BottomStatusBarProps) {
   const stream = useEegStore((s) => s.stream);
+  const baudRate = useEegStore((s) => s.acquisition.baudRate);
   const hardwareConfig = useEegStore((s) => s.acquisition.hardwareConfig);
   const diagnosticsCount = useEegStore((s) => s.diagnostics.length);
   const [now, setNow] = useState<Date>(() => new Date());
@@ -90,6 +91,11 @@ export function BottomStatusBar({
     <footer className="fixed bottom-0 inset-x-0 z-30 bg-card border-t border-hairline">
       <div className="mx-auto flex h-10 max-w-[80rem] items-stretch px-5">
         <div className="flex flex-1 items-stretch divide-x divide-hairline overflow-x-auto">
+          <Segment
+            label={t(locale, 'statusBar.baudLabel')}
+            value={String(baudRate)}
+            tone="meta"
+          />
           <Segment
             label={t(locale, 'statusBar.srLabel')}
             value={`${sampleRateHz} HZ`}

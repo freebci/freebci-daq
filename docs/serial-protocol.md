@@ -4,11 +4,17 @@ This document is the firmware-facing wire protocol implemented by the web fronte
 
 Page tuning values such as EMA alpha, alert threshold, unreliable warmup, and focus windows are browser-side analysis settings. They do not change this firmware protocol.
 
+The setup page lets the user choose the Web Serial `baudRate` before opening
+the device. The default is `921600`; the currently offered values are
+`115200`, `230400`, `460800`, and `921600`. The selected value is passed to
+`port.open({ baudRate })`; it is a host-side UART setting and is not part of
+the `EEGCFG` wire command. Firmware must use the same UART rate.
+
 Web Serial baudRate: 921600
 
 ## Transport
 
-Web Serial open options used by the frontend:
+Default Web Serial open option used by the frontend:
 
 ```text
 baudRate = 921600
@@ -171,7 +177,9 @@ total   = 24400 bytes/s
 UART 8N1 line rate ~= 244000 bps
 ```
 
-This is below the current `921600` baud setting.
+This is below the default `921600` baud setting. If a lower baud rate is
+selected, the firmware must ensure that the configured sample/channel
+throughput still fits the selected UART line rate.
 
 ## Lead-Off Detection
 
@@ -191,7 +199,7 @@ The frontend only opens serial after hardware parameters and site/channel bindin
 Connection:
 
 ```text
-open serial at 921600
+open serial at the user-selected baud rate (default `921600`)
 frontend -> EEGRST,1\n
 firmware -> EEGRSTACK,<seq>,OK\n
 frontend -> EEGCFG,1,SR=...,CH=...,GAIN=...,RLD=...,AC=...\n

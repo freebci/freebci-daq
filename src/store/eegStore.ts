@@ -60,6 +60,10 @@ import {
   normalizeEegChannelCount,
 } from '../transport/eegChannels';
 import {
+  EEG_SERIAL_DEFAULT_BAUD_RATE,
+  normalizeEegSerialBaudRate,
+} from '../config/serial';
+import {
   DEFAULT_EEG_HARDWARE_CONFIG,
   getEffectiveEegHardwareSampleRateHz,
   normalizeEegHardwareConfig,
@@ -88,6 +92,7 @@ interface EegStore extends AcquisitionState {
   setStreamInactive: () => void;
   setStreamStalled: (isStalled: boolean) => void;
   resetStreamRuntime: () => void;
+  setBaudRate: (baudRate: number) => void;
   setHardwareConfig: (config: Partial<EegHardwareConfig>) => void;
   setChannelCount: (channelCount: number) => void;
   lockHardwareConfig: () => void;
@@ -174,6 +179,7 @@ const initialBrainHeatmapState = {
 
 const initialAcquisitionState: EegAcquisitionState = {
   channelCount: EEG_DEFAULT_CHANNEL_COUNT,
+  baudRate: EEG_SERIAL_DEFAULT_BAUD_RATE,
   hardwareConfig: DEFAULT_EEG_HARDWARE_CONFIG,
   hardwareConfigLocked: false,
 };
@@ -510,6 +516,19 @@ export const useEegStore = create<EegStore>((set) => ({
         acquisition: {
           ...state.acquisition,
           hardwareConfig,
+        },
+      };
+    }),
+  setBaudRate: (baudRate) =>
+    set((state) => {
+      if (state.acquisition.hardwareConfigLocked) {
+        return {};
+      }
+
+      return {
+        acquisition: {
+          ...state.acquisition,
+          baudRate: normalizeEegSerialBaudRate(baudRate),
         },
       };
     }),

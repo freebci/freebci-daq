@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
-  EEG_SERIAL_BAUD_RATE,
+  EEG_SERIAL_BAUD_RATES,
+  EEG_SERIAL_DEFAULT_BAUD_RATE,
   EEG_SERIAL_CONFIG_ACK_TIMEOUT_MS,
   EEG_SERIAL_RESET_ACK_TIMEOUT_MS,
   EEG_SERIAL_SWITCH_ACK_TIMEOUT_MS,
@@ -21,8 +22,11 @@ const protocolDoc = readFileSync('docs/serial-protocol.md', 'utf8');
 
 describe('serial protocol document consistency', () => {
   it('matches the frontend baud rate and supported sample rates', () => {
-    expect(protocolDoc).toContain(`Web Serial baudRate: ${EEG_SERIAL_BAUD_RATE}`);
-    expect(protocolDoc).toContain(`baudRate = ${EEG_SERIAL_BAUD_RATE}`);
+    expect(protocolDoc).toContain(`Web Serial baudRate: ${EEG_SERIAL_DEFAULT_BAUD_RATE}`);
+    expect(protocolDoc).toContain(`baudRate = ${EEG_SERIAL_DEFAULT_BAUD_RATE}`);
+    for (const baudRate of EEG_SERIAL_BAUD_RATES) {
+      expect(protocolDoc).toContain(String(baudRate));
+    }
     expect(protocolDoc).toContain('UART 8N1, no parity, no flow control');
     expect(protocolDoc).toContain(`SR:   ${SERIAL_HARDWARE_SAMPLE_RATES_HZ.join(', ')}`);
     expect(protocolDoc).toContain(
@@ -98,7 +102,7 @@ describe('serial protocol document consistency', () => {
     expect(protocolDoc).toContain('The first data frame after START establishes the baseline');
     expect(protocolDoc).toContain('droppedSamples = droppedPackets * currentFrame.count');
     expect(protocolDoc).toContain('Recommended default: `count = 20`');
-    expect(protocolDoc).toContain('This is below the current `921600` baud setting.');
+    expect(protocolDoc).toContain('This is below the default `921600` baud setting.');
   });
 
   it('documents sequential writes and loopback detection', () => {

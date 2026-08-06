@@ -1,4 +1,4 @@
-import { EEG_SERIAL_BAUD_RATE } from '../config/serial';
+import { EEG_SERIAL_DEFAULT_BAUD_RATE } from '../config/serial';
 
 export function isWebSerialSupported(): boolean {
   return typeof navigator !== 'undefined' && 'serial' in navigator;
@@ -14,7 +14,7 @@ export async function requestSerialPort(): Promise<SerialPort> {
 
 export async function openSerialPort(
   port: SerialPort,
-  baudRate = EEG_SERIAL_BAUD_RATE,
+  baudRate = EEG_SERIAL_DEFAULT_BAUD_RATE,
 ): Promise<void> {
   await port.open({ baudRate });
 }

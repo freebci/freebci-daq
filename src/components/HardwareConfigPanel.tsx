@@ -1,5 +1,9 @@
 import type { ChangeEvent } from 'react';
 import { Check, Lock, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import {
+  EEG_SERIAL_BAUD_RATES,
+  type EegSerialBaudRate,
+} from '../config/serial';
 import type { Locale } from '../i18n';
 import { t } from '../i18n';
 import {
@@ -20,6 +24,7 @@ interface HardwareConfigPanelProps {
 interface HardwareSelectProps<T extends string | number> {
   id: string;
   label: string;
+  hint?: string;
   value: T;
   options: readonly T[];
   disabled: boolean;
@@ -30,6 +35,7 @@ interface HardwareSelectProps<T extends string | number> {
 function HardwareSelect<T extends string | number>({
   id,
   label,
+  hint,
   value,
   options,
   disabled,
@@ -44,7 +50,7 @@ function HardwareSelect<T extends string | number>({
   }
 
   return (
-    <Field label={label} htmlFor={id}>
+    <Field label={label} htmlFor={id} hint={hint}>
       <select
         id={id}
         value={String(value)}
@@ -66,6 +72,10 @@ function formatSampleRate(sampleRateHz: EegHardwareSampleRateHz): string {
   return sampleRateHz >= 1000 ? `${sampleRateHz / 1000} kHz` : `${sampleRateHz} Hz`;
 }
 
+function formatBaudRate(baudRate: EegSerialBaudRate): string {
+  return `${baudRate.toLocaleString('en-US')} baud`;
+}
+
 function formatAcLeadOffMode(locale: Locale, mode: EegHardwareAcLeadOffMode): string {
   switch (mode) {
     case 'FDR4':
@@ -83,6 +93,7 @@ function formatAcLeadOffMode(locale: Locale, mode: EegHardwareAcLeadOffMode): st
 
 export function HardwareConfigPanel({ locale }: HardwareConfigPanelProps) {
   const status = useEegStore((state) => state.status);
+  const baudRate = useEegStore((state) => state.acquisition.baudRate);
   const hardwareConfig = useEegStore((state) => state.acquisition.hardwareConfig);
   const hardwareConfigLocked = useEegStore(
     (state) => state.acquisition.hardwareConfigLocked,
@@ -91,6 +102,7 @@ export function HardwareConfigPanel({ locale }: HardwareConfigPanelProps) {
     (state) => state.stream.isStarting || state.stream.isStreaming,
   );
   const setHardwareConfig = useEegStore((state) => state.setHardwareConfig);
+  const setBaudRate = useEegStore((state) => state.setBaudRate);
   const lockHardwareConfig = useEegStore((state) => state.lockHardwareConfig);
   const unlockHardwareConfig = useEegStore(
     (state) => state.unlockHardwareConfig,
@@ -137,7 +149,17 @@ export function HardwareConfigPanel({ locale }: HardwareConfigPanelProps) {
         }
       />
       <CardBody className="flex flex-col gap-4">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <HardwareSelect<EegSerialBaudRate>
+            id="serial-baud-rate"
+            label={t(locale, 'serial.baudRate')}
+            hint={t(locale, 'serial.baudRateHint')}
+            value={baudRate}
+            options={EEG_SERIAL_BAUD_RATES}
+            disabled={!canEditFields}
+            formatOption={formatBaudRate}
+            onChange={setBaudRate}
+          />
           <HardwareSelect<EegHardwareSampleRateHz>
             id="hardware-sample-rate"
             label={t(locale, 'serial.sampleRate')}

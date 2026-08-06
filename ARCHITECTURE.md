@@ -33,7 +33,10 @@ requestSerialPort
   → EegSampleBatch
 ```
 
-The app only opens serial after hardware parameters and acquisition site bindings are confirmed. Selecting a new serial device replaces the current device.
+The app only opens serial after serial/hardware parameters (including the baud
+rate) and acquisition site bindings are confirmed. The selected baud rate is
+used by Web Serial when the port is opened; it is not sent in `EEGCFG`.
+Selecting a new serial device replaces the current device.
 
 ## Batch Processing Flow
 
@@ -70,7 +73,12 @@ Waveform panels render from observer buses, not from Zustand. This keeps 250Hz d
 
 ## Configuration and Tuning
 
-Fixed defaults and bounds live in `src/config/eeg.ts` and `src/focus/config.ts`.
+Fixed defaults and bounds live in `src/config/eeg.ts`, `src/config/serial.ts`,
+and `src/focus/config.ts`.
+
+Connection and hardware values selected on the Setup page are serializable
+acquisition state. Baud rate defaults to `921600`, is locked together with the
+hardware parameters, and only takes effect on the next serial connection.
 
 Scene-dependent values are page state:
 

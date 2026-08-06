@@ -22,7 +22,7 @@ npm run dev
 
 Open `http://localhost:5173`, then complete the setup flow:
 
-1. Confirm hardware parameters.
+1. Confirm serial/hardware parameters (including a baud rate matching the device UART).
 2. Confirm acquisition site bindings.
 3. Open the serial device.
 4. Start collection and optionally choose a CSV output file.

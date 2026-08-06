@@ -14,6 +14,7 @@ export function SystemPanel({ locale }: SystemPanelProps) {
   const isSerialSupported = useEegStore((state) => state.isSerialSupported);
   const diagnostics = useEegStore((state) => state.diagnostics);
   const stream = useEegStore((state) => state.stream);
+  const acquisition = useEegStore((state) => state.acquisition);
   const analysis = useEegStore((state) => state.analysis);
   const aiState = useAiStore((state) => ({
     conversationId: state.conversationId,
@@ -31,6 +32,12 @@ export function SystemPanel({ locale }: SystemPanelProps) {
     },
   }));
   const protocolDebug = {
+    acquisition: {
+      baudRate: acquisition.baudRate,
+      hardwareConfig: acquisition.hardwareConfig,
+      channelCount: acquisition.channelCount,
+      hardwareConfigLocked: acquisition.hardwareConfigLocked,
+    },
     stream: {
       isStreaming: stream.isStreaming,
       writesRawCsv: stream.writesRawCsv,

@@ -6,6 +6,7 @@ import type {
   EegBrainHeatmapState,
 } from './eeg';
 import type { EegFocusStatePoint } from '../focus/types';
+import type { EegSerialBaudRate } from '../config/serial';
 import type { EegHardwareConfig } from '../transport/eegHardwareConfig';
 
 export type AcquisitionStatus =
@@ -79,6 +80,8 @@ export interface EegDrawingState {
 
 export interface EegAcquisitionState {
   channelCount: number;
+  /** Web Serial transport baud rate used when opening the port. */
+  baudRate: EegSerialBaudRate;
   hardwareConfig: EegHardwareConfig;
   hardwareConfigLocked: boolean;
 }

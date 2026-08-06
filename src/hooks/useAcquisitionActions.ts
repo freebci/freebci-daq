@@ -12,7 +12,6 @@ import {
   setAiBandRecordingEnabled,
 } from '../ai/conversationRuntime';
 import {
-  EEG_SERIAL_BAUD_RATE,
   EEG_SERIAL_CONFIG_ACK_TIMEOUT_MS,
   EEG_SERIAL_RESET_ACK_TIMEOUT_MS,
   EEG_SERIAL_STALLED_TIMEOUT_MS,
@@ -169,6 +168,7 @@ interface PendingSerialSwitchAck {
 
 export function useAcquisitionActions(locale: Locale) {
   const serialPortRef = useRef<SerialPort | null>(null);
+  const serialBaudRateRef = useRef<number | null>(null);
   const serialReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const serialParserRef = useRef<SerialEegProtocolParser | null>(null);
   const serialDetachRef = useRef<(() => void) | null>(null);
@@ -569,6 +569,7 @@ export function useAcquisitionActions(locale: Locale) {
       detachSerialDisconnectListener();
       void stopStreamInternal();
       serialPortRef.current = null;
+      serialBaudRateRef.current = null;
       serialReaderRef.current = null;
       serialParserRef.current = null;
       serialCancelResetAckRef.current?.(new Error('Serial connection closed.'));
@@ -648,6 +649,7 @@ export function useAcquisitionActions(locale: Locale) {
 
     const port = serialPortRef.current;
     serialPortRef.current = null;
+    serialBaudRateRef.current = null;
 
     const reader = serialReaderRef.current;
     serialReaderRef.current = null;
@@ -889,11 +891,12 @@ export function useAcquisitionActions(locale: Locale) {
       setError(null);
       await resetCurrentConnection();
       setStatus('requesting-device');
+      const baudRate = useEegStore.getState().acquisition.baudRate;
       addLocalizedDiagnostic(
         'running',
         'diagnostics.phaseSerialConnect',
         'diagnostics.serialRequestStart',
-        { baudRate: EEG_SERIAL_BAUD_RATE },
+        { baudRate },
       );
       const port = await requestSerialPort();
       const summary = toSerialPortSummary(port);
@@ -924,8 +927,9 @@ export function useAcquisitionActions(locale: Locale) {
       serialCancelConfigAckRef.current = session.cancelConfigAck;
 
       setStatus('connecting');
-      await openSerialPort(port, EEG_SERIAL_BAUD_RATE);
+      await openSerialPort(port, baudRate);
       serialPortRef.current = port;
+      serialBaudRateRef.current = baudRate;
       serialDetachRef.current = addSerialDisconnectListener(port, () =>
         handleSerialDisconnected(),
       );
@@ -1116,6 +1120,11 @@ export function useAcquisitionActions(locale: Locale) {
       }
 
       const streamStartedAt = performance.now();
+      const baudRate = serialBaudRateRef.current;
+      if (baudRate === null) {
+        blockStreamStart('error.streamRequiresConnection');
+        return;
+      }
 
       try {
         isStreamStartingRef.current = true;
@@ -1124,7 +1133,7 @@ export function useAcquisitionActions(locale: Locale) {
         const channelNames = serialParser.channelNames;
         const hardwareConfig = useEegStore.getState().acquisition.hardwareConfig;
         const sampleRateHz = getCurrentAcquisitionSampleRateHz();
-        const serialSourceLabel = `Serial ${EEG_SERIAL_BAUD_RATE} · ${sampleRateHz}Hz · ${channelNames.length}CH`;
+        const serialSourceLabel = `Serial ${baudRate} · ${sampleRateHz}Hz · ${channelNames.length}CH`;
         setError(null);
         useEegStore.getState().setChannelCount(channelNames.length);
         useEegStore.getState().resetStreamRuntime();
@@ -1190,7 +1199,7 @@ export function useAcquisitionActions(locale: Locale) {
           'success',
           'diagnostics.phaseDataStream',
           'diagnostics.serialStreamStartSuccess',
-          { baudRate: EEG_SERIAL_BAUD_RATE },
+          { baudRate },
           undefined,
           elapsedMs(streamStartedAt),
         );
